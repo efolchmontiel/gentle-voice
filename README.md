@@ -217,6 +217,6 @@ pnpm typecheck
 npm pack --dry-run
 ```
 
-Issues and pull requests: [CONTRIBUTING.md](CONTRIBUTING.md).
+Issues and pull requests: [CONTRIBUTING.md](CONTRIBUTING.md). The default branch is `main`.
 
 https://github.com/efolchmontiel/gentle-voice/issues
