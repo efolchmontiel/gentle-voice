@@ -24,6 +24,14 @@ export async function completeConversationSetup(
 	input: ConversationSetupInput,
 ): Promise<VoiceCapabilities> {
 	const previouslyConfigured = readCapabilities(env) !== undefined;
+	if (host.prepareCapture) {
+		try {
+			await host.prepareCapture();
+		} catch (error) {
+			const message = error instanceof Error ? error.message : "capture_prepare_failed";
+			host.notify(`Microphone preparation failed (${message}).`, "warning");
+		}
+	}
 	let silero: Awaited<ReturnType<typeof driveSileroInstall>>;
 	try {
 		silero = await driveSileroInstall(host, { env });

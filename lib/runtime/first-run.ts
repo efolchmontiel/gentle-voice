@@ -90,6 +90,7 @@ export interface FirstRunHost extends InstallDriveHost {
 	confirm?(title: string, message: string): Promise<boolean>;
 	select?(title: string, options: readonly string[]): Promise<string | undefined>;
 	captureReady?(): Promise<boolean>;
+	prepareCapture?(): Promise<void>;
 }
 
 async function finishConversation(

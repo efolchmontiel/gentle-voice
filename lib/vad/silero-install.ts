@@ -70,6 +70,8 @@ export interface SileroDriveHost {
 		options?: { placement?: "aboveEditor" | "belowEditor" },
 	): void;
 	captureReady?(): Promise<boolean>;
+	/** Platform fix-ups before the microphone check, e.g. the WSLg PipeWire bridge. */
+	prepareCapture?(): Promise<void>;
 }
 
 export interface SileroInstallIo {

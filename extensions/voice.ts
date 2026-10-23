@@ -136,6 +136,7 @@ import {
 	writeVibeVoicePlaybackPreference,
 	type VibeVoicePlaybackPreference,
 } from "../lib/adapters/vibevoice-pcm.ts";
+import { createNodeWslAudioIo, driveWslAudioBridge, planWslAudioBridge } from "../lib/adapters/wsl-audio.ts";
 
 export { VOICE_STATUS_KEY, VOICE_WIDGET_KEY };
 
@@ -506,7 +507,31 @@ export function createVoiceExtension(pi: VoiceHostApi, options: VoiceExtensionOp
 						ui.setWidget!(key, content, options),
 				}
 				: {}),
-			captureReady: async () => (await adapters.capture.availability()).status === "ready",
+			captureReady: async () => {
+				if ((await adapters.capture.availability()).status !== "ready") return false;
+				if (!useRealAudio || process.platform !== "linux") return true;
+				// On WSL, pw-record alone records nothing until PipeWire reaches WSLg.
+				const wsl = await planWslAudioBridge(process.env, createNodeWslAudioIo());
+				return wsl.kind === "not-wsl" || wsl.kind === "ready";
+			},
+			...(useRealAudio && process.platform === "linux"
+				? {
+					prepareCapture: async () => {
+						await driveWslAudioBridge({
+							notify: (message, level) => {
+								try {
+									ctx.ui.notify(message, level ?? "info");
+								} catch {
+									/* ignore */
+								}
+							},
+							...(typeof ui.confirm === "function"
+								? { confirm: (title: string, message: string) => ui.confirm!(title, message) }
+								: {}),
+						});
+					},
+				}
+				: {}),
 			activateEngine: async () => {
 				rebindAdaptersFromRuntime();
 				const tts = session.deps.tts as {

@@ -2,6 +2,12 @@
 
 All notable changes to Gentle Voice are documented here.
 
+## [Unreleased]
+
+### Added
+
+- On WSL2 with WSLg, `/gentle:voice setup` connects PipeWire to the Windows microphone. Before, it only said `Microphone missing`. It names the exact missing piece: WSLg, the PipeWire packages (as an `apt` command it does not run), a hung WSLg audio server, or the Windows microphone permission. After a confirm, it writes one user-level pulse-tunnel drop-in and enables the PipeWire user services. The tunnels are `nofail`, so a down WSLg server never keeps PipeWire from starting, and a bridge that did not load is offered a service restart. Native Linux is unchanged. (#13)
+
 ## [0.1.8] — 2026-10-21
 
 ### Fixed
