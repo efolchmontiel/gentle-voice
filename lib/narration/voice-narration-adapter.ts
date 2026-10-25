@@ -157,7 +157,11 @@ export function createVoiceNarrationAdapter(
 				&& resolution.note === "voice-ai has no model configured"
 			) {
 				announcedNoModel = true;
-				options.onNotice?.("Voice AI: No dedicated model configured. Using orchestrator.");
+				options.onNotice?.(
+					resolution.source === "active_model_fallback"
+						? `Voice AI: No dedicated model configured. Using the session model ${resolution.model.ref}.`
+						: "Voice AI: No dedicated model configured. Using orchestrator.",
+				);
 			}
 			updateDiag({
 				narratorSource: resolution.source,
@@ -352,6 +356,22 @@ export function createVoiceNarrationAdapter(
 						ok: false,
 						path: "cancelled",
 						reason: "aborted",
+						resolution: ready,
+						latencyMs: now() - started,
+					};
+				}
+
+				const providerError = completion.errorMessage?.trim()
+					|| (completion.stopReason === "error" ? "provider returned an error" : "");
+				if (providerError) {
+					const brief = providerError.replace(/\s+/g, " ").slice(0, 160);
+					updateDiag({ lastPath: "deterministic", lastReason: `provider_error:${ready.model.ref}` });
+					noticeFallback(`${ready.model.ref} failed (${brief})`);
+					return {
+						ok: true,
+						path: "deterministic",
+						text: raw,
+						reason: `provider_error:${ready.model.ref}`,
 						resolution: ready,
 						latencyMs: now() - started,
 					};

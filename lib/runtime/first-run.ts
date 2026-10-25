@@ -27,6 +27,9 @@ import {
 import { createNetworkOnboardingIo } from "../vibevoice/network-io.ts";
 import { formatPiperActivation, formatVibeVoiceActivation, formatWhisperActivation } from "../vibevoice/activation.ts";
 import { driveVibeVoiceInstall, type InstallDriveHost } from "../vibevoice/install-drive.ts";
+import { isKokoroReady, resolveKokoroHome } from "../kokoro/home.ts";
+import { createKokoroNetworkIo, formatKokoroConsent, kokoroBasePythonAvailable } from "../kokoro/install.ts";
+import { driveKokoroInstall } from "../kokoro/install-drive.ts";
 import { completeConversationSetup } from "./conversation-setup.ts";
 import {
 	readTtsEnginePreference,
@@ -103,7 +106,7 @@ async function finishConversation(
 	const sttReady = !plan.missing.some((item) => item.kind.startsWith("stt"));
 	const piperMissing = plan.missing.some((item) => item.id.startsWith("piper"));
 	const vibevoiceReady = probeVibeVoiceReadiness(env).ready;
-	const ttsInstalled = vibevoiceReady || !piperMissing;
+	const ttsInstalled = vibevoiceReady || isKokoroReady(env) || !piperMissing;
 	const ttsActive = Boolean(live?.ttsId && live.ttsId !== "stub");
 	await completeConversationSetup(host, env, {
 		ttsInstalled,
@@ -163,10 +166,15 @@ export async function buildFirstRunPlan(
 		if (await existsReadable(path)) present.push(art);
 		else missing.push(art);
 	}
-	// Piper is the other engine. A chosen VibeVoice install must not look unfinished
+	// Piper is the other engine. A chosen VibeVoice or Kokoro install must not look unfinished
 	// just because Daniela was never downloaded.
 	const preference = readTtsEnginePreference(resolveVoiceHomeForTts(env));
-	const outstanding = preference === "vibevoice" && probeVibeVoiceReadiness(env).ready
+	const otherEngine = preference === "vibevoice" && probeVibeVoiceReadiness(env).ready
+		? "VibeVoice"
+		: preference === "kokoro" && isKokoroReady(env)
+			? "Kokoro"
+			: undefined;
+	const outstanding = otherEngine
 		? missing.filter((art) => !art.kind.startsWith("tts"))
 		: missing;
 
@@ -179,7 +187,7 @@ export async function buildFirstRunPlan(
 			status: "ready",
 			summary: missing.length === 0
 				? "All pinned STT/TTS artifacts present under the private Gentle Voice data dir."
-				: "Speech recognition is ready. The voice engine is VibeVoice.",
+				: `Speech recognition is ready. The voice engine is ${otherEngine}.`,
 			estimatedDownloadBytes: 0,
 			blockers,
 		};
@@ -384,7 +392,15 @@ async function chooseSetupDownloads(
 	});
 	const consentBody = formatVibeVoiceConsent(vibevoicePlan);
 	const piperBody = formatPiperPrompt(totalEstimatedBytes(piper), plan.layout.dataDir);
+	const kokoroHome = resolveKokoroHome(env);
+	const kokoroInstalled = isKokoroReady(env);
+	const kokoro = {
+		installed: kokoroInstalled,
+		runnable: plan.layout.platform === "linux" && plan.arch === "x64"
+			&& (kokoroInstalled || kokoroBasePythonAvailable()),
+	};
 	const recommendation = recommendTts({
+		kokoro,
 		preference,
 		recommendationDeclined: readTtsRecommendationDeclined(voiceHome),
 		compatibility: classified.compatibility,
@@ -404,7 +420,7 @@ async function chooseSetupDownloads(
 		if (typeof host.confirm !== "function") return false;
 		return host.confirm("Install Piper?", piperBody);
 	};
-	const rememberEngine = (engine: "vibevoice" | "piper"): void => {
+	const rememberEngine = (engine: "vibevoice" | "piper" | "kokoro"): void => {
 		writeTtsEnginePreference(voiceHome, engine);
 	};
 	const runVibeVoiceDownload = async (): Promise<void> => {
@@ -417,6 +433,14 @@ async function chooseSetupDownloads(
 			allowNetwork: env.GENTLE_VOICE_VIBEVOICE_ALLOW_NETWORK !== "0",
 			allowTmpfs: env.GENTLE_VOICE_VIBEVOICE_ALLOW_TMPFS === "1",
 			io: createNetworkOnboardingIo(),
+		});
+	};
+	const runKokoroDownload = async (): Promise<void> => {
+		await driveKokoroInstall(host, {
+			targetDir: kokoroHome,
+			voiceHome,
+			consent: true,
+			io: createKokoroNetworkIo(),
 		});
 	};
 	const switchToPiper = async (): Promise<void> => {
@@ -434,9 +458,10 @@ async function chooseSetupDownloads(
 		const picked = parseEngineChoice(
 			await chooseOption(host, recommendation.title, recommendation.message, recommendation.options),
 		);
-		if (picked === "vibevoice" || picked === "piper") {
+		if (picked === "vibevoice" || picked === "piper" || picked === "kokoro") {
 			const follow = followEngineSelection({
 				choice: picked,
+				kokoroInstalled,
 				compatibility: classified.compatibility,
 				compatibilityReasons: classified.reasons,
 				installBlocked: vibevoicePlan.status === "blocked",
@@ -444,13 +469,20 @@ async function chooseSetupDownloads(
 				installState,
 				piperPresent: piper.length === 0,
 				location: engineHome,
-				consentBody: picked === "piper" ? piperBody : consentBody,
+				consentBody: picked === "piper" ? piperBody : picked === "kokoro" ? formatKokoroConsent(kokoroHome) : consentBody,
 				...(readiness.reason ? { damageDetail: readiness.reason } : {}),
 			});
 			if (follow.kind === "blocked") host.notify(follow.message, "warning");
 			else if (follow.kind === "activate") {
 				rememberEngine(follow.engine);
-				if (host.activateEngine && follow.engine === "piper") {
+				if (host.activateEngine && follow.engine === "kokoro") {
+					const live = await host.activateEngine();
+					const active = live.ttsId === "kokoro";
+					host.notify(
+						active ? "Kokoro is your voice engine. Voice ef_dora, CPU." : `Kokoro is installed, but this session is using ${live.ttsId ?? "another engine"}.`,
+						active ? "info" : "warning",
+					);
+				} else if (host.activateEngine && follow.engine === "piper") {
 					const live = await host.activateEngine();
 					const active = live.ttsId === "piper";
 					host.notify(formatPiperActivation({ voice: "es_AR-daniela-high", active }), active ? "info" : "warning");
@@ -465,9 +497,10 @@ async function chooseSetupDownloads(
 					}), active ? "info" : "warning");
 				} else host.notify(follow.notice, "info");
 			} else if (follow.kind === "confirm") {
-				rememberEngine(follow.engine);
+				if (follow.engine !== "kokoro") rememberEngine(follow.engine);
 				const accepted = typeof host.confirm === "function" && await host.confirm(follow.title, follow.message);
 				if (!accepted) host.notify("Nothing was downloaded.", "info");
+				else if (follow.engine === "kokoro") await runKokoroDownload();
 				else if (follow.engine === "vibevoice") await runVibeVoiceDownload();
 				else chosen.push(...piper);
 			}

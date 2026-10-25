@@ -307,3 +307,53 @@ test("2D.3 Gentleman persona: agent voseo not rewritten by TTS path", () => {
 	assert.match(units[0]!.speakable, /ponete|mirá/);
 	assert.ok(!/ponte|mira el/i.test(units[0]!.speakable.replace("mirá", "")));
 });
+
+test("listen while a stream synth is still running waits for it instead of staying ARMING", async () => {
+	let releaseSynth!: () => void;
+	const synthGate = new Promise<void>((resolveGate) => {
+		releaseSynth = resolveGate;
+	});
+	let captures = 0;
+	const stubTts = createStubTtsAdapter({ latencyMs: 1 });
+	const session = new VoiceSession({
+		config: convoConfig(),
+		capture: {
+			id: "c",
+			async availability() {
+				return { status: "ready" };
+			},
+			async start() {
+				captures += 1;
+				return {
+					id: "s",
+					async stop() {
+						return { bytes: new Uint8Array(8), sampleRateHz: 16_000, channels: 1, format: "pcm_s16le" };
+					},
+				};
+			},
+		},
+		stt: createStubSttAdapter(),
+		tts: {
+			...stubTts,
+			async synthesize(text, options) {
+				await synthGate;
+				return stubTts.synthesize(text, options);
+			},
+		},
+		playback: createStubPlaybackAdapter({ durationMs: 1 }),
+	});
+	session.dispatch({ type: "ENABLE" });
+	session.beginStreamSpeak();
+	session.onMessageUpdate({
+		assistantMessageEvent: { type: "text_delta", delta: "Primera oración larga para probar el guard de eco. " },
+	});
+	await new Promise((r) => setTimeout(r, 10));
+	session.dispatch({ type: "LISTEN" });
+	await new Promise((r) => setTimeout(r, 30));
+	assert.equal(captures, 0, "the mic must stay closed while synthesis runs");
+	releaseSynth();
+	const deadline = Date.now() + 1000;
+	while (captures === 0 && Date.now() < deadline) await new Promise((r) => setTimeout(r, 5));
+	assert.equal(captures, 1, "the mic opens once the queue drains");
+	session.dispose();
+});

@@ -4,6 +4,21 @@ All notable changes to Gentle Voice are documented here.
 
 ## [Unreleased]
 
+### Fixed
+
+- Voice AI: when the `voice-ai` role is missing or has no model, the narrator is the model the session is running, not the orchestrator saved in the profile file.
+- Voice AI: a provider error (for example `401 Invalid API key`) is shown with the model. It used to appear as `empty_llm_response`.
+- Rebinding the engines (for example after an install) stops the previous VibeVoice worker. Before, two copies stayed loaded, using about 5.5 GB on an 8 GB GPU.
+- Turning conversation on while a reply is still being synthesized waits for it, then opens the microphone. It used to stay on `ARMING`.
+- `/gentle-voice tts kokoro` leaves Kokoro active after installing, even when `GENTLE_VOICE_TTS` selects another engine.
+- With Kokoro installed, startup no longer asks to download Piper (about 134 MiB) on every launch, and the setup reports the voice engine as installed.
+- The Kokoro worker removes its temporary copy of `libespeak-ng` when it is stopped or its terminal closes. Before, every stop left a 662 KB folder in `/tmp`.
+- The Silero download size is shown in MiB, like the other downloads.
+
+### Added
+
+- Kokoro is the recommended voice engine: natural Spanish (`ef_dora`) on the CPU, about 390 MB installed, without a GPU. On Linux x64 with Python 3.11 to 3.14, the first-launch menu lists `Kokoro` first, and `/gentle-voice tts kokoro` offers to install it. The model and voices are pinned by sha256, the Python environment is private, and pip runs without a cache. VibeVoice stays as the optional GPU engine and Piper as the light fallback.
+
 ## [0.2.0] — 2026-10-25
 
 ### Changed

@@ -7,6 +7,7 @@ import { createHash } from "node:crypto";
 import { existsSync, readFileSync } from "node:fs";
 import { mkdir, readFile, rename, rm, stat, writeFile } from "node:fs/promises";
 import { dirname, join } from "node:path";
+import { formatBytes } from "../runtime/artifacts.ts";
 import { resolveGentleVoiceStorage } from "../runtime/storage.ts";
 import { createCompactVoiceLeaf, type CompactWidgetLeaf, type VoiceThemeLike } from "../visual/compact-widget.ts";
 import { tryCreateSileroVad } from "./silero-vad.ts";
@@ -233,7 +234,7 @@ export async function driveSileroInstall(
 			"Silero VAD",
 			[
 				"Conversation mode recommends Silero to detect speech.",
-				`Download: ${SILERO_VAD_BYTES} bytes`,
+				`Download: ~${formatBytes(SILERO_VAD_BYTES)}`,
 				"License: MIT",
 				"Energy VAD stays available if you decline.",
 				"Nothing is downloaded until you accept.",

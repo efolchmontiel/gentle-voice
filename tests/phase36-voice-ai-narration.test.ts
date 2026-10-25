@@ -2,10 +2,10 @@
  * Voice AI — narrator resolver + adapter fallbacks (no live provider calls).
  */
 import assert from "node:assert/strict";
-import { mkdtempSync, mkdirSync, writeFileSync } from "node:fs";
+import { mkdtempSync, mkdirSync, rmSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
-import { test } from "node:test";
+import { after, test } from "node:test";
 import {
 	applyVoiceAiEnvOverrides,
 	DEFAULT_VOICE_CONFIG,
@@ -775,4 +775,94 @@ test("widget shows NARRATING while the second call is in flight", () => {
 		{},
 	);
 	assert.equal(working, "WORKING");
+});
+
+const createdProfileDirs: string[] = [];
+after(() => {
+	for (const dir of createdProfileDirs) rmSync(dir, { recursive: true, force: true });
+});
+
+function profilesDir(prefix: string, profile: Record<string, unknown>): string {
+	const dir = mkdtempSync(join(tmpdir(), prefix));
+	createdProfileDirs.push(dir);
+	writeFileSync(
+		join(dir, "profiles.json"),
+		JSON.stringify({ kind: "gentle-pi.agent_model_profiles", version: 1, active: "P", profiles: { P: profile } }),
+	);
+	return dir;
+}
+
+test("resolveNarrator: role absent uses the session model, not the saved orchestrator", () => {
+	const dir = profilesDir("gv-vai-session-", { orchestrator: { model: "nan/deepseek-v4-flash" } });
+	const res = resolveNarratorFromProfiles({
+		configHome: dir,
+		activeModel: { provider: "openai-codex", id: "gpt-6.1-sol" },
+		activeThinking: "medium",
+	});
+	assert.equal(res.status, "ready");
+	if (res.status === "ready") {
+		assert.equal(res.source, "active_model_fallback");
+		assert.equal(res.model.ref, "openai-codex/gpt-6.1-sol");
+		assert.equal(res.profileName, "P");
+	}
+});
+
+test("resolveNarrator: an empty voice-ai role uses the session model", () => {
+	const dir = profilesDir("gv-vai-empty-", { orchestrator: { model: "nan/deepseek-v4-flash" }, "voice-ai": {} });
+	const res = resolveNarratorFromProfiles({
+		configHome: dir,
+		activeModel: { provider: "openai-codex", id: "gpt-6.1-sol" },
+	});
+	assert.equal(res.status, "ready");
+	if (res.status === "ready") {
+		assert.equal(res.source, "active_model_fallback");
+		assert.equal(res.model.ref, "openai-codex/gpt-6.1-sol");
+		assert.equal(res.note, "voice-ai has no model configured");
+	}
+});
+
+test("resolveNarrator: an assigned voice-ai role still wins over the session model", () => {
+	const dir = profilesDir("gv-vai-role-", { "voice-ai": { model: "nan/mimo-v2.6-flash" } });
+	const res = resolveNarratorFromProfiles({
+		configHome: dir,
+		activeModel: { provider: "openai-codex", id: "gpt-6.1-sol" },
+	});
+	assert.equal(res.status, "ready");
+	if (res.status === "ready") assert.equal(res.model.ref, "nan/mimo-v2.6-flash");
+});
+
+test("adapter: a provider error is reported with the model, not as an empty reply", async () => {
+	const dir = profilesDir("gv-vai-401-", { "voice-ai": { model: "nan/mimo-v2.6-flash" } });
+	const notices: string[] = [];
+	const adapter = createVoiceNarrationAdapter({
+		config: {
+			enabled: true,
+			role: "voice-ai",
+			onError: "deterministic",
+			style: "natural",
+			timeoutMs: 5_000,
+			maxInputChars: 2000,
+			configHome: dir,
+		},
+		host: {
+			find: () => ({ id: "mimo-v2.6-flash" }),
+			hasConfiguredAuth: () => true,
+			complete: async () => ({
+				content: [],
+				stopReason: "error",
+				errorMessage: '401: {"message":"Invalid API key."}',
+			}),
+		},
+		onNotice: (message) => notices.push(message),
+	});
+	const r = await adapter.narrate({ text: "Hola, qué gusto saludarte hoy." });
+	assert.equal(r.ok, true);
+	if (r.ok) {
+		assert.equal(r.path, "deterministic");
+		assert.equal(r.reason, "provider_error:nan/mimo-v2.6-flash");
+		assert.equal(r.text, "Hola, qué gusto saludarte hoy.");
+	}
+	assert.equal(notices.length, 1);
+	assert.match(notices[0]!, /nan\/mimo-v2\.6-flash failed \(401: .*Invalid API key/);
+	assert.doesNotMatch(notices[0]!, /empty_llm_response/);
 });
