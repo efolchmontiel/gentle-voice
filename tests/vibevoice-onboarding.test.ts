@@ -1,6 +1,6 @@
 import assert from "node:assert/strict";
 import { createHash } from "node:crypto";
-import { mkdtempSync, mkdirSync, readFileSync, writeFileSync } from "node:fs";
+import { existsSync, mkdtempSync, mkdirSync, readFileSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { spawnSync } from "node:child_process";
@@ -162,6 +162,8 @@ test("consent without network authorization does not download or mark the engine
 test("simulated install verifies hashes, uses a private venv, and selects PCM", async () => {
 	const { target, voiceHome, outside } = layout();
 	writeFileSync(join(voiceHome, "..", "outside.txt"), "keep");
+	mkdirSync(join(target, ".download-cache"), { recursive: true });
+	writeFileSync(join(target, ".download-cache", "source.tgz"), "archive");
 	const { artifacts, bodies } = fixtures();
 	const calls: string[] = [];
 	const progress: string[] = [];
@@ -212,6 +214,14 @@ test("simulated install verifies hashes, uses a private venv, and selects PCM", 
 	assert.equal(lastSteps.find((step) => step.id === "activate")?.state, "pending");
 	const pipAt = calls.findIndex((call) => slash(call).includes("/.venv/bin/pip install"));
 	assert.equal(pipAt > 0, true);
+	const pipCalls = calls.filter((call) => slash(call).includes("/.venv/bin/pip install"));
+	assert.equal(pipCalls.length, 2);
+	assert.ok(pipCalls.every((call) => call.includes(" --no-cache-dir ")));
+	assert.match(pipCalls[0]!, / --no-deps -e /);
+	assert.doesNotMatch(pipCalls[0]!, /\[streamingtts\]/);
+	assert.match(pipCalls[1]!, / torch transformers==4\.51\.3 diffusers accelerate numpy tqdm$/);
+	assert.doesNotMatch(pipCalls.join("\n"), /gradio|aiortc|librosa|fastapi/);
+	assert.equal(existsSync(join(target, ".download-cache")), false);
 	assert.equal(formatInstallView(createInstallChecklist().snapshot()).some((line) => line.includes("Existing components")), false);
 });
 
