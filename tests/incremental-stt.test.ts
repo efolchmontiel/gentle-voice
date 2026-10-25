@@ -248,8 +248,15 @@ test("long decode hides provisional via decoding status", async () => {
 	ctrl.pushPcm(pcmTone(200));
 	await new Promise((r) => setTimeout(r, 40));
 	assert.equal(ctrl.getProvisional(), "primero");
+	const started = calls;
 	ctrl.pushPcm(pcmTone(200));
+	// The long decode starts on the interval timer, which a fixed sleep can miss.
 	await new Promise((r) => setTimeout(r, 25));
+	const deadline = Date.now() + 1_000;
+	while (calls === started && Date.now() < deadline) {
+		await new Promise((r) => setTimeout(r, 10));
+	}
+	assert.ok(calls > started, "the long decode never started");
 	clock += 120;
 	ctrl.pushPcm(pcmTone(20));
 	assert.equal(ctrl.getProvisional(), "");
