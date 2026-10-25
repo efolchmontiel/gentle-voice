@@ -4,6 +4,10 @@ All notable changes to Gentle Voice are documented here.
 
 ## [Unreleased]
 
+### Added
+
+- Kokoro is the recommended voice engine: natural Spanish (`ef_dora`) on the CPU, about 390 MB installed, without a GPU. On Linux x64 with Python 3.11 to 3.14, the first-launch menu lists `Kokoro` first, and `/gentle-voice tts kokoro` offers to install it. The model and voices are pinned by sha256, the Python environment is private, and pip runs without a cache. VibeVoice stays as the optional GPU engine and Piper as the light fallback.
+
 ## [0.2.0] — 2026-10-25
 
 ### Changed

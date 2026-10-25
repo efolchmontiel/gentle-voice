@@ -25,6 +25,8 @@ import {
 	type VibeVoiceTtsAdapter,
 } from "./vibevoice-tts.ts";
 import { createVibeVoicePiperBridge } from "./vibevoice-piper-bridge.ts";
+import { createKokoroWorkerTtsAdapter } from "./kokoro-worker-tts.ts";
+import { isKokoroReady, resolveKokoroHome } from "../kokoro/home.ts";
 import { chooseTtsEngine, resolvePreferredTts } from "../vibevoice/tts-preference.ts";
 import {
 	createStubCaptureAdapter,
@@ -288,8 +290,10 @@ export function resolveLabVoiceAdapters(options?: {
 			piperVoice = piper.voiceModelPath;
 		}
 
-		// Kokoro lab paths only when gate is ON (labKokoroPresent short-circuits OFF).
-		if (labKokoroPresent()) {
+		if (isKokoroReady()) {
+			kokoroAdapter = createKokoroWorkerTtsAdapter({ home: resolveKokoroHome(), tmpDir });
+			kokoroReady = true;
+		} else if (labKokoroPresent()) {
 			kokoroAdapter = createKokoroTtsAdapter({ tmpDir, keepTemp: false, dryRun: false });
 			kokoroReady = true;
 		}
