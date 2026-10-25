@@ -1,6 +1,6 @@
 {
 	"name": "gentle-voice",
-	"version": "0.1.8",
+	"version": "0.2.0",
 	"description": "Local voice conversation extension for Pi Coding Agent and Gentle Shell (STT/TTS).",
 	"license": "MIT",
 	"type": "module",

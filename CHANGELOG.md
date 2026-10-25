@@ -4,6 +4,8 @@ All notable changes to Gentle Voice are documented here.
 
 ## [Unreleased]
 
+## [0.2.0] — 2026-10-25
+
 ### Changed
 
 - **Breaking:** the command is now `/gentle-voice`, replacing `/gentle:voice`. Gentle Shell ships its own `/gentle:voice` for local dictation, and Pi suffixed the two duplicate names as `/gentle:voice:1` and `/gentle:voice:2`. Every subcommand works as before under the new name, for example `/gentle-voice setup` and `/gentle-voice purge`.
