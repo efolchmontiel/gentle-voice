@@ -181,11 +181,26 @@ A later message that did not come from the voice turn is not spoken automaticall
 
 | Symptom | Check |
 | --- | --- |
-| No microphone | PipeWire session, device permission, capture not started |
+| No microphone | PipeWire session, device permission, capture not started. On WSL2, see below |
 | No speech model | Setup consent was declined, or the download failed |
 | No VibeVoice | `GENTLE_VOICE_VIBEVOICE_HOME` missing or incomplete. Piper still works |
 | CUDA error | Use Piper, or fix the engine outside this package. Do not expect Gentle Voice to repair drivers |
 | PCM refused | `pw-play` has no float32. `/gentle:voice stream wav` |
+
+### WSL2 with WSLg
+
+WSLg exposes the Windows microphone and speakers only through its PulseAudio server (`RDPSource`, `RDPSink`). Capture uses `pw-record`, so PipeWire has to reach that server. On WSL, `/gentle:voice setup` checks each step and stops at the first one that fails:
+
+| Step | What setup does |
+| --- | --- |
+| No `/mnt/wslg/PulseServer` | Asks you to run `wsl --update` in Windows |
+| PipeWire missing | Prints `sudo apt install pipewire pipewire-bin wireplumber pulseaudio-utils`. It never runs sudo |
+| WSLg audio server hung | Asks you to run `wsl --shutdown` in Windows |
+| No `RDPSource` | Points to Windows Settings → Privacy & security → Microphone, then `wsl --shutdown` |
+| No bridge yet | After you confirm, writes `~/.config/pipewire/pipewire.conf.d/gentle-voice-wslg.conf` and runs `systemctl --user enable --now pipewire.socket pipewire.service wireplumber.service`, then restarts both services |
+| Bridge configured, no source in PipeWire | After you confirm, runs `systemctl --user restart pipewire.service wireplumber.service` |
+
+A PipeWire graph that already lists an audio source counts as ready, wherever its tunnel is configured. The bridge is user-level only. Both tunnels are `nofail`: if WSLg's audio server is down when PipeWire starts, PipeWire still starts without them, and the next setup offers the restart. An existing drop-in that already points at `/mnt/wslg/PulseServer` is reused. `pipewire-pulse` is not enabled, because `PULSE_SERVER` already points at WSLg. The user services need `systemd=true` under `[boot]` in `/etc/wsl.conf`.
 
 ## Where data lives
 
@@ -210,6 +225,7 @@ Speech-to-text and Piper or VibeVoice synthesis run locally. Voice AI can call a
 | --- | --- |
 | Linux x64, PipeWire, Piper, Whisper | Tested in development |
 | Linux x64, VibeVoice PCM on NVIDIA CUDA | Tested on one lab GPU. Experimental, especially in Spanish |
+| Linux x64 on WSL2 + WSLg, PipeWire bridge | Tested once on Ubuntu 24.04, PipeWire 1.0.5. Experimental |
 | Linux arm64 | Not tested here |
 | Windows, macOS | Not supported |
 
