@@ -39,6 +39,7 @@
 		"!docs/experimental-integration.md",
 		"extensions/",
 		"scripts/vibevoice-lab-worker.py",
+		"scripts/kokoro-worker.py",
 		"lib/",
 		"!lib/lab/",
 		"!lib/lab/**",
