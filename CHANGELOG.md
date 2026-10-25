@@ -4,6 +4,8 @@ All notable changes to Gentle Voice are documented here.
 
 ## [Unreleased]
 
+## [0.3.0] — 2026-10-25
+
 ### Fixed
 
 - Voice AI: when the `voice-ai` role is missing or has no model, the narrator is the model the session is running, not the orchestrator saved in the profile file.
