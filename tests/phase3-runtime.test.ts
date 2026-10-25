@@ -7,7 +7,7 @@ import assert from "node:assert/strict";
 import { mkdir, mkdtemp, rm, writeFile } from "node:fs/promises";
 import { truncateSync } from "node:fs";
 import { tmpdir } from "node:os";
-import { join } from "node:path";
+import { dirname, join } from "node:path";
 import { test } from "node:test";
 import { sha256Buffer, checksumMatches } from "../lib/runtime/checksum.ts";
 import { resolveRuntimeLayout } from "../lib/runtime/paths.ts";
@@ -15,6 +15,7 @@ import { buildFirstRunPlan, verifyArtifactFile } from "../lib/runtime/first-run.
 import { VIBEVOICE_MODEL_SAFETENSORS_BYTES } from "../lib/adapters/vibevoice-tts.ts";
 import { writeTtsEnginePreference } from "../lib/vibevoice/tts-preference.ts";
 import { KOKORO_ARTIFACTS, KOKORO_INTEGRITY_KIND } from "../lib/kokoro/manifest.ts";
+import { kokoroVenvPython } from "../lib/kokoro/home.ts";
 import { formatCompatMarkdown, COMPAT_MATRIX } from "../lib/runtime/compat-matrix.ts";
 import { artifactsFor, detectArch } from "../lib/runtime/artifacts.ts";
 import { parseVoiceArgs } from "../lib/commands.ts";
@@ -126,8 +127,8 @@ test("3.1 a ready Kokoro engine does not ask to download Piper", async (t) => {
 	const root = await mkdtemp(join(tmpdir(), "gv-kokoro-ready-"));
 	t.after(() => rm(root, { recursive: true, force: true }));
 	const engine = join(root, "kokoro");
-	await mkdir(join(engine, ".venv", "bin"), { recursive: true });
-	await writeFile(join(engine, ".venv", "bin", "python"), "");
+	await mkdir(dirname(kokoroVenvPython(engine)), { recursive: true });
+	await writeFile(kokoroVenvPython(engine), "");
 	await writeFile(join(engine, "integrity.json"), JSON.stringify({ kind: KOKORO_INTEGRITY_KIND }));
 	for (const artifact of KOKORO_ARTIFACTS) {
 		const path = join(engine, artifact.relativePath);
