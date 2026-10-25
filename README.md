@@ -53,7 +53,7 @@ After you assign a model, the entry looks like this. Thinking is optional:
 "voice-ai": { "model": "provider/model-id", "thinking": "low" }
 ```
 
-That model writes the spoken line. The orchestrator model keeps writing the text on screen. Thinking on the role is optional. When it is omitted, the narrator does not copy the orchestrator's thinking. If the role exists but has no model, the second call uses the profile orchestrator. If the role is missing, the profile orchestrator is used, then the active Pi model. An invalid id or a provider error is shown, and the written reply is spoken as-is. Models are not swapped silently.
+That model writes the spoken line. The orchestrator model keeps writing the text on screen. Thinking on the role is optional. When it is omitted, the narrator does not copy the orchestrator's thinking. If the role is missing or has no model, the narrator is the model the session is running. An invalid id or a provider error is shown with the model and the provider's message, for example `401 Invalid API key`, and the written reply is spoken as-is. Models are not swapped silently.
 
 Restart the host after installing.
 
@@ -130,8 +130,8 @@ On Gentle Shell, the empty `voice-ai` role is added to every existing profile. A
 | Pi, no profile opt-in | The active Pi model writes the spoken text |
 | Role `voice-ai` has a model | That model writes the spoken text |
 | Role has a model and no thinking | That model. Thinking stays unset |
-| Role exists, no model | The profile orchestrator writes it |
-| Role is missing | The profile orchestrator, then the active Pi model |
+| Role exists, no model | The session model writes it |
+| Role is missing | The session model writes it |
 | Invalid id, missing model, or provider error | The reason is shown. The written reply is spoken |
 | `/gentle-voice voice-ai off` | No extra model call |
 

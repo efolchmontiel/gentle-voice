@@ -395,9 +395,28 @@ export function resolveNarratorFromProfiles(
 			}
 		}
 
+		// No narrator assigned: the session's own model speaks. GS strips the
+		// orchestrator from the frozen profile because the session model is the
+		// orchestrator; the saved profile orchestrator can differ from it.
+		const emptyRole = roleExists && !(roleEntry?.model?.trim());
+		const sessionModel = activeModelRef(options.activeModel, options.activeThinking);
+		if (sessionModel) {
+			return {
+				status: "ready",
+				source: "active_model_fallback",
+				...(profileName ? { profileName } : {}),
+				...(profileOrigin ? { profileOrigin } : {}),
+				...(orchestratorRef ? { orchestratorRef } : {}),
+				...(orchestratorThinking ? { orchestratorThinking } : {}),
+				model: sessionModel,
+				note: emptyRole
+					? "voice-ai has no model configured"
+					: `role ${roleName} absent; using the session model`,
+			};
+		}
+
 		const orch = entryToModel(routing[PROFILE_ORCHESTRATOR_KEY], options.activeThinking);
 		if (orch) {
-			const emptyRole = roleExists && !(roleEntry?.model?.trim());
 			return {
 				status: "ready",
 				source: "orchestrator_fallback",
