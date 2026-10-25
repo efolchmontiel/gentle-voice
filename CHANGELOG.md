@@ -17,7 +17,17 @@ All notable changes to Gentle Voice are documented here.
 
 ### Added
 
-- Kokoro is the recommended voice engine: natural Spanish (`ef_dora`) on the CPU, about 390 MB installed, without a GPU. On Linux x64 with Python 3.11 to 3.14, the first-launch menu lists `Kokoro` first, and `/gentle-voice tts kokoro` offers to install it. The model and voices are pinned by sha256, the Python environment is private, and pip runs without a cache. VibeVoice stays as the optional GPU engine and Piper as the light fallback.
+- Kokoro is the recommended voice engine: natural Spanish (`ef_dora`) on the CPU, about 370 MB installed, without a GPU. On Linux x64 with Python 3.11 to 3.14, the first-launch menu lists `Kokoro` first, and `/gentle-voice tts kokoro` offers to install it. The model and voices are pinned by sha256, the Python environment is private, and pip runs without a cache. VibeVoice stays as the optional GPU engine and Piper as the light fallback.
+- Spanish and English. `/gentle-voice lang auto|es|en` sets the language you speak and the voice answers in. `auto`, the default, lets Whisper detect Spanish or English on every turn and answers in the language of the last turn. Kokoro answers in English with `af_heart` and VibeVoice with `en-Emma_woman`; both voices are in files already installed. Piper has no English voice. Voice AI writes the spoken text in that language. `GENTLE_VOICE_LANG` overrides the stored choice.
+- README: a Languages section and a measured disk usage table for every component.
+
+### Changed
+
+- Silero runs on sherpa-onnx instead of `onnxruntime-node`. The optional npm dependency installed 548 MB with the package, without asking. The pinned sherpa-onnx runtime is an 11.1 MB download (33.4 MB on disk on Linux x64), checked by size and sha512, and is installed together with the Silero model after one consent screen that explains what Silero does and lists both parts. When Gentle Shell already installed the same runtime, it is reused. A typical install (package, Whisper, Silero, and Kokoro) goes from about 1 GB to about 495 MB.
+
+### Fixed
+
+- `auto` speech-to-text language transcribed everything as English, because `whisper-cli` defaults to English when `-l` is missing. It now passes `-l auto`.
 
 ## [0.2.0] — 2026-10-25
 
