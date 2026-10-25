@@ -13,6 +13,7 @@ from __future__ import annotations
 
 import argparse
 import json
+import signal
 import sys
 import wave
 
@@ -41,6 +42,12 @@ def main() -> int:
 	parser.add_argument("--voice", default="ef_dora")
 	parser.add_argument("--probe", action="store_true")
 	args = parser.parse_args()
+
+	# phonemizer copies libespeak-ng into a mkdtemp() and removes it in a finalizer.
+	# The host stops this worker with SIGTERM; dying on the signal skips finalizers and leaves the copy in /tmp.
+	for name in ("SIGTERM", "SIGHUP", "SIGINT"):
+		if hasattr(signal, name):
+			signal.signal(getattr(signal, name), lambda *_: sys.exit(0))
 
 	try:
 		import onnxruntime

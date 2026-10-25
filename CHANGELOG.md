@@ -11,6 +11,9 @@ All notable changes to Gentle Voice are documented here.
 - Rebinding the engines (for example after an install) stops the previous VibeVoice worker. Before, two copies stayed loaded, using about 5.5 GB on an 8 GB GPU.
 - Turning conversation on while a reply is still being synthesized waits for it, then opens the microphone. It used to stay on `ARMING`.
 - `/gentle-voice tts kokoro` leaves Kokoro active after installing, even when `GENTLE_VOICE_TTS` selects another engine.
+- With Kokoro installed, startup no longer asks to download Piper (about 134 MiB) on every launch, and the setup reports the voice engine as installed.
+- The Kokoro worker removes its temporary copy of `libespeak-ng` when it is stopped or its terminal closes. Before, every stop left a 662 KB folder in `/tmp`.
+- The Silero download size is shown in MiB, like the other downloads.
 
 ### Added
 

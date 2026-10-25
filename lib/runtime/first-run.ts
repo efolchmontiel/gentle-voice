@@ -106,7 +106,7 @@ async function finishConversation(
 	const sttReady = !plan.missing.some((item) => item.kind.startsWith("stt"));
 	const piperMissing = plan.missing.some((item) => item.id.startsWith("piper"));
 	const vibevoiceReady = probeVibeVoiceReadiness(env).ready;
-	const ttsInstalled = vibevoiceReady || !piperMissing;
+	const ttsInstalled = vibevoiceReady || isKokoroReady(env) || !piperMissing;
 	const ttsActive = Boolean(live?.ttsId && live.ttsId !== "stub");
 	await completeConversationSetup(host, env, {
 		ttsInstalled,
@@ -166,10 +166,15 @@ export async function buildFirstRunPlan(
 		if (await existsReadable(path)) present.push(art);
 		else missing.push(art);
 	}
-	// Piper is the other engine. A chosen VibeVoice install must not look unfinished
+	// Piper is the other engine. A chosen VibeVoice or Kokoro install must not look unfinished
 	// just because Daniela was never downloaded.
 	const preference = readTtsEnginePreference(resolveVoiceHomeForTts(env));
-	const outstanding = preference === "vibevoice" && probeVibeVoiceReadiness(env).ready
+	const otherEngine = preference === "vibevoice" && probeVibeVoiceReadiness(env).ready
+		? "VibeVoice"
+		: preference === "kokoro" && isKokoroReady(env)
+			? "Kokoro"
+			: undefined;
+	const outstanding = otherEngine
 		? missing.filter((art) => !art.kind.startsWith("tts"))
 		: missing;
 
@@ -182,7 +187,7 @@ export async function buildFirstRunPlan(
 			status: "ready",
 			summary: missing.length === 0
 				? "All pinned STT/TTS artifacts present under the private Gentle Voice data dir."
-				: "Speech recognition is ready. The voice engine is VibeVoice.",
+				: `Speech recognition is ready. The voice engine is ${otherEngine}.`,
 			estimatedDownloadBytes: 0,
 			blockers,
 		};
