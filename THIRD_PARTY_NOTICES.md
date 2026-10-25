@@ -41,11 +41,12 @@ tarball) come from upstream projects. First-run consent must surface these terms
 - Spanish output is outside the published training scope. Treat it as experimental.
 - Microsoft recommends disclosing that the speech is AI-generated and does not recommend commercial or real-world use without further testing.
 
-## Kokoro (optional lab)
+## Kokoro-82M (recommended engine, downloaded on consent)
 
-- Used only when present under a developer lab install.
-- Not portable product default. Apache-2.0 (engine) — verify voice assets separately.
-- Not announced as functional until a real portable implementation ships.
+- Weights: https://huggingface.co/hexgrad/Kokoro-82M — **Apache-2.0**. Converted files `kokoro-v1.0.fp16.onnx` and `voices-v1.0.bin` come from the `model-files-v1.1` release of https://github.com/thewh1teagle/kokoro-onnx and are pinned by sha256.
+- Runtime: `kokoro-onnx` 0.6.1 — **MIT**. ONNX Runtime — **MIT**.
+- Phonemization: `phonemizer` and `espeak-ng` (via `espeakng-loader`) — **GPL-3.0**. pip installs them into the private environment at install time, as separate programs. This npm package does not contain or link them.
+- This npm package does **not** redistribute the weights, the voices, or a Python environment.
 
 ## FFmpeg (optional OS audio)
 
