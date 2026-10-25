@@ -3,7 +3,7 @@
 
 Protocol: one JSON object per line.
   stdout on start: {"op": "ready"} or {"op": "error", "error": "..."}
-  stdin request:   {"id": 1, "text": "...", "voice": "ef_dora", "out": "/tmp/x.wav", "speed": 1.0}
+  stdin request:   {"id": 1, "text": "...", "voice": "ef_dora", "lang": "es", "out": "/tmp/x.wav", "speed": 1.0}
   stdout reply:    {"op": "done", "id": 1, "sampleRate": 24000, "durationSec": 1.2}
                    {"op": "error", "id": 1, "error": "..."}
 With --probe it synthesizes one short phrase and exits 0 on success.
@@ -86,7 +86,7 @@ def main() -> int:
 				request["text"],
 				voice=request.get("voice") or args.voice,
 				speed=float(request.get("speed") or 1.0),
-				lang=args.lang,
+				lang=request.get("lang") or args.lang,
 			)
 			write_wav(request["out"], samples, rate)
 			emit({"op": "done", "id": request_id, "sampleRate": rate, "durationSec": len(samples) / rate})

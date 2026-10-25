@@ -22,7 +22,7 @@ Lab uses a private venv + ONNX configured via `GENTLE_VOICE_LAB_ROOT` / `GENTLE_
 
 | Piece | Candidate | Notes |
 | --- | --- | --- |
-| Runtime | `onnxruntime-node` (or vendored ORT shared lib) | Avoids Python; pin exact version + platform binaries |
+| Runtime | sherpa-onnx (already downloaded for Silero, Kokoro support built in) | Avoids Python; pin exact version + platform binaries |
 | Model | Kokoro ONNX quantized (~80–200 MB class; measure before pin) | SHA-256 in `artifacts.ts` |
 | Voices | Single-voice NPZ/ONNX voice pack (ef_dora or successor) | License review required |
 | G2P / phonemizer | Prefer pure-JS or bundled tiny asset; avoid system espeak if possible | Lab needed espeak path for Spanish — must be solved or documented |

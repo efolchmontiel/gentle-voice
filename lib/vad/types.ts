@@ -27,13 +27,13 @@ export interface VadEngine {
 	pushPcmS16le(chunk: Uint8Array): boolean;
 	reset(): void;
 	/**
-	 * Async engines (Silero/ORT) update speech and end after push returns.
+	 * Async engines update speech and end after push returns.
 	 * Capture uses this so the turn can close without waiting for another chunk.
 	 */
 	setUpdateListener?(listener: (() => void) | undefined): void;
 	/** Last inference error. Empty when the model is scoring frames. */
 	readonly inferenceError?: string;
-	/** Optional async dispose (ORT session). */
+	/** Optional async dispose. */
 	dispose?(): void | Promise<void>;
 }
 

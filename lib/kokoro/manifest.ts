@@ -42,6 +42,9 @@ export const KOKORO_PIP_REQUIREMENTS: readonly string[] = Object.freeze(["kokoro
 export const KOKORO_DEFAULT_VOICE = "ef_dora" as const;
 export const KOKORO_SPANISH_VOICES: readonly string[] = Object.freeze(["ef_dora", "em_alex", "em_santa"]);
 export const KOKORO_LANG = "es" as const;
+/** English lives in the same voices-v1.0.bin, so switching costs no download. */
+export const KOKORO_ENGLISH_VOICE = "af_heart" as const;
+export const KOKORO_ENGLISH_LANG = "en-us" as const;
 
 /** Model, voices, and the private venv, measured on Linux x64 with Python 3.14. */
 export const KOKORO_INSTALLED_BYTES = 390_000_000;

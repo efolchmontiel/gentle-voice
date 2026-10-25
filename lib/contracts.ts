@@ -40,6 +40,7 @@ export type VoiceCommandName =
 	| "add"
 	| "barge-in"
 	| "tts"
+	| "lang"
 	| "vibevoice-setup"
 	| "";
 
@@ -132,6 +133,8 @@ export interface TtsAdapter {
 	synthesize(text: string, options: {
 		signal: AbortSignal;
 		voiceId?: string;
+		/** "es" or "en". Engines without a voice for it keep their own. */
+		language?: string;
 		/** Lab-only. Float32 mono frames while VibeVoice is still generating. */
 		onPcm?: (frame: {
 			seq: number;

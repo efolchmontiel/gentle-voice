@@ -6,6 +6,7 @@
 
 import { mkdirSync, readFileSync, writeFileSync } from "node:fs";
 import { dirname, join } from "node:path";
+import type { VoiceLanguageMode } from "./language/voice-language.ts";
 
 /** Marker so re-injection is idempotent and removable by presence check. */
 export const CONVERSE_STYLE_MARKER = "<!-- gentle-voice:converse-style -->";
@@ -14,10 +15,20 @@ export const CONVERSE_STYLE_MARKER = "<!-- gentle-voice:converse-style -->";
  * Session-scoped style block. Written Spanish requirements; does not rewrite
  * TTS or invent tool results.
  */
+const LANGUAGE_LINE: Record<VoiceLanguageMode, string> = {
+	auto: "Respondé en el idioma en que te habla el usuario: español natural por defecto, inglés natural si te habla en inglés. Conversacional, como un asistente de voz — no como un documento técnico leído en voz alta.",
+	es: "Respondé en español natural y conversacional, como un asistente de voz — no como un documento técnico leído en voz alta.",
+	en: "Respondé en inglés natural y conversacional (la voz habla inglés), como un asistente de voz — no como un documento técnico leído en voz alta.",
+};
+
+export function converseStylePrompt(language: VoiceLanguageMode = "auto"): string {
+	return CONVERSE_STYLE_PROMPT.replace(LANGUAGE_LINE.auto, LANGUAGE_LINE[language]);
+}
+
 export const CONVERSE_STYLE_PROMPT = `${CONVERSE_STYLE_MARKER}
 # Estilo conversacional (Gentle Voice)
 
-Respondé en español natural y conversacional, como un asistente de voz — no como un documento técnico leído en voz alta.
+${LANGUAGE_LINE.auto}
 
 - Explicá conceptos técnicos en términos sencillos cuando el usuario lo pida o cuando ayude a entender.
 - Sé directo; evitá listas innecesarias salvo que el usuario las pida o la claridad lo exija.
@@ -49,10 +60,11 @@ export function appendSystemPromptOnce(
 export function injectConverseStyleIfEnabled(
 	systemPromptOptions: { appendSystemPrompt?: string } | null | undefined,
 	enabled: boolean,
+	language: VoiceLanguageMode = "auto",
 ): boolean {
 	if (!enabled || !systemPromptOptions) return false;
 	const before = systemPromptOptions.appendSystemPrompt ?? "";
-	appendSystemPromptOnce(systemPromptOptions, CONVERSE_STYLE_PROMPT);
+	appendSystemPromptOnce(systemPromptOptions, converseStylePrompt(language));
 	return (systemPromptOptions.appendSystemPrompt ?? "") !== before
 		|| before.includes(CONVERSE_STYLE_MARKER);
 }

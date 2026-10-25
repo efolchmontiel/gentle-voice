@@ -1,29 +1,28 @@
 /**
  * Silero VAD (ONNX) — speech probability over 32 ms frames @ 16 kHz.
- * Model: snakers4/silero-vad (MIT). Runtime: optional `onnxruntime-node`.
+ * Model: snakers4/silero-vad (MIT). Runtime: sherpa-onnx (Apache-2.0), see sherpa-runtime.ts.
  * Never throws into the capture path: callers use resolveVad / tryCreateSileroVad.
  *
- * Frame inference may be async (ORT). `pushPcmS16le` returns the current ended
- * flag; end may latch one chunk later — capture keeps buffering until then.
+ * Injected scorers may be async. `pushPcmS16le` returns the current ended
+ * flag; with an async scorer end may latch one chunk later.
  */
 
-import { access, constants, readFile } from "node:fs/promises";
+import { access, constants } from "node:fs/promises";
+import { loadSherpa, resolveSherpaRuntime } from "./sherpa-runtime.ts";
 import type { VadEngine, VadEngineState, VadPhase, VadTimingOptions } from "./types.ts";
 
 /** 16 kHz Silero window (official). */
 export const SILERO_WINDOW_SAMPLES = 512;
-/** Rolling context prepended to each window (snakers4 utils_vad OnnxWrapper). */
-export const SILERO_CONTEXT_SAMPLES = 64;
-export const SILERO_INPUT_SAMPLES = SILERO_CONTEXT_SAMPLES + SILERO_WINDOW_SAMPLES; // 576
-export const SILERO_STATE_SIZE = 2 * 1 * 128;
 
 export interface SileroVadOptions extends VadTimingOptions {
 	/** Path to silero_vad.onnx (required for real inference). */
 	readonly modelPath: string;
 	/** Speech probability threshold (0–1). Default 0.5. */
 	readonly speechProbThreshold?: number;
+	/** Env used to find the sherpa runtime and storage. Defaults to process.env. */
+	readonly env?: NodeJS.ProcessEnv;
 	/**
-	 * Injected frame runner (tests / non-ORT). Returns speech probability in [0, 1].
+	 * Injected frame runner (tests). Returns speech probability in [0, 1].
 	 * Sync or async.
 	 */
 	readonly runFrame?: (frame: Float32Array) => number | Promise<number>;
@@ -32,29 +31,6 @@ export interface SileroVadOptions extends VadTimingOptions {
 export type SileroLoadResult =
 	| { readonly ok: true; readonly engine: VadEngine }
 	| { readonly ok: false; readonly reason: string };
-
-type OrtModule = {
-	InferenceSession: {
-		create(path: string | Uint8Array, options?: object): Promise<{
-			run(feeds: Record<string, unknown>): Promise<Record<string, { data: Float32Array }>>;
-			release?(): Promise<void>;
-		}>;
-	};
-	Tensor: new (
-		type: string,
-		data: Float32Array | BigInt64Array,
-		dims: number[],
-	) => unknown;
-};
-
-async function tryImportOrt(): Promise<OrtModule | undefined> {
-	try {
-		const mod = await import("onnxruntime-node");
-		return mod as unknown as OrtModule;
-	} catch {
-		return undefined;
-	}
-}
 
 function pcmChunkToFloat32(chunk: Uint8Array): Float32Array {
 	const samples = Math.floor(chunk.byteLength / 2);
@@ -197,7 +173,7 @@ export function createSileroVadFromRunner(
 			merged.set(f32, pending.length);
 			pending = merged;
 			// One consumer. A sync scorer finishes before this returns.
-			// An async scorer (ORT) latches speech and end on setUpdateListener.
+			// An async scorer latches speech and end on setUpdateListener.
 			void drain();
 			return ended;
 		},
@@ -218,7 +194,9 @@ export function createSileroVadFromRunner(
 }
 
 /**
- * Load Silero ONNX via onnxruntime-node. Fail-soft reasons for resolveVad.
+ * Load Silero through the sherpa-onnx runtime. Fail-soft reasons for resolveVad.
+ * sherpa reports speech per 512-sample window (not a probability), so the
+ * window score is 1 or 0 and the pause/end timing above stays ours.
  */
 export async function tryCreateSileroVad(options: SileroVadOptions): Promise<SileroLoadResult> {
 	if (options.runFrame) {
@@ -240,64 +218,45 @@ export async function tryCreateSileroVad(options: SileroVadOptions): Promise<Sil
 		return { ok: false, reason: "silero_requires_16khz" };
 	}
 
-	const ort = await tryImportOrt();
-	if (!ort) {
-		return { ok: false, reason: "onnxruntime_node_missing" };
+	const runtime = resolveSherpaRuntime(options.env);
+	if (!runtime) {
+		return { ok: false, reason: "sherpa_runtime_missing" };
 	}
 
 	try {
-		const modelBytes = await readFile(modelPath);
-		// Prefer CPU so VibeVoice (CUDA) cannot stall VAD / end-of-speech detection.
-		// Fall back to ORT defaults if this build has no CPU EP by name.
-		let session: Awaited<ReturnType<typeof ort.InferenceSession.create>>;
-		try {
-			session = await ort.InferenceSession.create(modelBytes, {
-				executionProviders: ["cpu"],
-			});
-		} catch {
-			session = await ort.InferenceSession.create(modelBytes);
-		}
-		let stateData = new Float32Array(SILERO_STATE_SIZE);
-		const sr = BigInt64Array.from([BigInt(16_000)]);
-
-		let context = new Float32Array(SILERO_CONTEXT_SAMPLES);
-		const runFrame = async (frame: Float32Array): Promise<number> => {
+		const sherpa = loadSherpa(runtime);
+		const config = {
+			sileroVad: {
+				model: modelPath,
+				threshold: options.speechProbThreshold ?? 0.5,
+				// Our state machine owns pauses and end of turn; keep sherpa's own hangover minimal.
+				minSilenceDuration: 0.1,
+				minSpeechDuration: 0.05,
+				maxSpeechDuration: 60,
+				windowSize: SILERO_WINDOW_SAMPLES,
+			},
+			sampleRate: 16_000,
+			numThreads: 1,
+			provider: "cpu",
+			debug: 0,
+		};
+		let vad = new sherpa.Vad(config, 30);
+		const runFrame = (frame: Float32Array): number => {
 			if (frame.length !== SILERO_WINDOW_SAMPLES) {
 				throw new Error(`silero frame must be ${SILERO_WINDOW_SAMPLES} samples`);
 			}
-			const inputData = new Float32Array(SILERO_INPUT_SAMPLES);
-			inputData.set(context);
-			inputData.set(frame, SILERO_CONTEXT_SAMPLES);
-			const input = new ort.Tensor("float32", inputData, [1, SILERO_INPUT_SAMPLES]);
-			const state = new ort.Tensor("float32", stateData, [2, 1, 128]);
-			const srT = new ort.Tensor("int64", sr, []);
-			const out = await session.run({
-				input,
-				state,
-				sr: srT,
-			});
-			const keys = Object.keys(out);
-			const probTensor = out.output ?? out.out ?? out[keys[0]!];
-			const stateOut = out.stateN ?? out.state ?? out[keys[1]!];
-			const probData = probTensor?.data;
-			const nextState = stateOut?.data;
-			if (nextState && nextState.length === stateData.length) {
-				stateData = Float32Array.from(nextState);
-			}
-			context = inputData.slice(inputData.length - SILERO_CONTEXT_SAMPLES);
-			const p = probData?.[0];
-			return typeof p === "number" && Number.isFinite(p) ? p : 0;
+			vad.acceptWaveform(frame);
+			const detected = vad.isDetected();
+			// Finished segments are not used; drop them so the buffer stays bounded.
+			while (!vad.isEmpty()) vad.pop();
+			return detected ? 1 : 0;
 		};
 
 		const engine = createSileroVadFromRunner({ ...options, runFrame });
 		const baseReset = engine.reset.bind(engine);
 		engine.reset = () => {
-			context = new Float32Array(SILERO_CONTEXT_SAMPLES);
-			stateData = new Float32Array(SILERO_STATE_SIZE);
+			vad = new sherpa.Vad(config, 30);
 			baseReset();
-		};
-		engine.dispose = async () => {
-			await session.release?.();
 		};
 		return { ok: true, engine };
 	} catch (error) {

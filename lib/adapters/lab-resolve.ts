@@ -204,7 +204,7 @@ export function resolveLabVoiceAdapters(options?: {
 						maxIntraPauseMs: behavior?.vadMaxIntraPauseMs ?? 450,
 						postRollMs: 220,
 					},
-					// auto: Silero when model+ORT present, else energy (no behavior change).
+					// auto: Silero when model and runtime are present, else energy (no behavior change).
 					vadBackend: behavior?.vadBackend ?? "auto",
 					...(behavior?.sileroModelPath
 						? { sileroModelPath: behavior.sileroModelPath }

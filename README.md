@@ -57,7 +57,7 @@ That model writes the spoken line. The orchestrator model keeps writing the text
 
 Restart the host after installing.
 
-The first launch does not download models by itself. On Linux x64 with Python 3.11 to 3.14, the voice-engine list is `Kokoro`, `VibeVoice`, `Piper`, and `Skip`. Kokoro is recommended: a natural Spanish voice on the CPU, about 390 MB on disk. VibeVoice is the optional GPU engine, labeled `(NVIDIA GPU, larger download)`. Without a usable Python, the list is `VibeVoice`, `Piper`, and `Skip`. Pi highlights the first row, so the recommended engine is listed first with `(Recommended for your system)`. In that shorter list, VibeVoice is recommended only when Linux x64, an NVIDIA GPU of at least 4 GB, 12 GiB free, and `python3` are confirmed. A failed GPU check is labeled `(Compatibility unknown)` and does not count as proof that the GPU is missing. Piper is the recommendation in that case, and when VibeVoice is `(Not supported)`, as long as Piper itself can run. Choosing an engine does not start a download. The install, finish, or repair question comes next. After Yes, Pi keeps a checklist on screen: each real step stays visible as Pending, Running, Completed, Failed, Reused, or Skipped. Notifications are not the progress view. When the checklist finishes, the engine is selected in the current session. `Ready to use` is shown only after that activation. No audio is played. `/gentle-voice status` and `/gentle-voice vibevoice-setup plan` stay available while that runs. `/gentle-voice vibevoice-setup cancel` stops it and keeps verified files. The next launch does not ask again when the install is already verified. Whisper is a separate question. An explicit Kokoro, Piper, or VibeVoice choice is kept. `/gentle-voice setup` repeats the check. It does not install GPU drivers, CUDA, or a system Python.
+The first launch does not download models by itself. On Linux x64 with Python 3.11 to 3.14, the voice-engine list is `Kokoro`, `VibeVoice`, `Piper`, and `Skip`. Kokoro is recommended: natural Spanish and English voices on the CPU, about 370 MB on disk. VibeVoice is the optional GPU engine, labeled `(NVIDIA GPU, larger download)`. Without a usable Python, the list is `VibeVoice`, `Piper`, and `Skip`. Pi highlights the first row, so the recommended engine is listed first with `(Recommended for your system)`. In that shorter list, VibeVoice is recommended only when Linux x64, an NVIDIA GPU of at least 4 GB, 12 GiB free, and `python3` are confirmed. A failed GPU check is labeled `(Compatibility unknown)` and does not count as proof that the GPU is missing. Piper is the recommendation in that case, and when VibeVoice is `(Not supported)`, as long as Piper itself can run. Choosing an engine does not start a download. The install, finish, or repair question comes next. After Yes, Pi keeps a checklist on screen: each real step stays visible as Pending, Running, Completed, Failed, Reused, or Skipped. Notifications are not the progress view. When the checklist finishes, the engine is selected in the current session. `Ready to use` is shown only after that activation. No audio is played. `/gentle-voice status` and `/gentle-voice vibevoice-setup plan` stay available while that runs. `/gentle-voice vibevoice-setup cancel` stops it and keeps verified files. The next launch does not ask again when the install is already verified. Whisper is a separate question. An explicit Kokoro, Piper, or VibeVoice choice is kept. `/gentle-voice setup` repeats the check. It does not install GPU drivers, CUDA, or a system Python.
 
 Do not pass `--extension` to a Pi that already has `npm:gentle-voice` installed. Pi would register `/gentle-voice` twice. Install with `pi install npm:gentle-voice` or `gentle-shell install npm:gentle-voice`. Both commands install that same npm package.
 
@@ -82,11 +82,33 @@ Opt out of the chords with `GENTLE_VOICE_DISABLE_SHORTCUTS=1`.
 
 ## Speech detection
 
-`GENTLE_VOICE_VAD=auto` (the default) uses Silero when `silero_vad.onnx` is available, and the energy detector otherwise. `energy` forces the energy detector. `silero` still falls back to energy if the model cannot load, and status reports why. The ONNX file is not in the npm package.
+Silero tells when you start and stop talking, so conversation mode sends your turn and listens again without a key press. It needs two parts that are not in the npm package: the model (`silero_vad.onnx`, 2.3 MB, MIT) and the sherpa-onnx runtime that runs it on the CPU (11.1 MB download and 33.4 MB on disk on Linux x64; Apache-2.0, with ONNX Runtime under MIT). Pi shows one consent screen that says what Silero does and lists both parts with their sizes and licenses. Both archives are checked against pinned sizes and sha512 hashes before anything is extracted. When Gentle Shell already installed the same runtime for its dictation, Gentle Voice reuses it and only the model is downloaded.
+
+`GENTLE_VOICE_VAD=auto` (the default) uses Silero when both parts are present, and the energy detector otherwise. `energy` forces the energy detector. `silero` still falls back to energy if Silero cannot load, and status reports why.
 
 ## Speech to text
 
 Whisper runs locally after you accept its download. The transcript that can be sent is the final one. Incremental speech-to-text is off unless `GENTLE_VOICE_INCREMENTAL_STT=1` (or the config flag). While it is on, provisional text is only for the screen. It is not submitted. A short local lexicon rewrites a few known mishearings, such as the product name and `C#`, after Whisper returns. It does not edit the Whisper model.
+
+## Languages
+
+Gentle Voice understands and speaks Spanish and English, with the same Whisper model and the same voice files. Switching costs no download.
+
+| Mode | What you say | What the voice answers in |
+| --- | --- | --- |
+| `auto` (default) | Spanish or English. Whisper detects it on every turn | The language of your last turn. Spanish before the first turn |
+| `es` | Spanish | Spanish |
+| `en` | English | English |
+
+`/gentle-voice lang auto|es|en` changes it and keeps the choice for the next launch. `/gentle-voice lang` prints the current mode. `GENTLE_VOICE_LANG` overrides the stored choice. In `auto`, a short turn that Whisper takes for a third language is transcribed again as Spanish. Technical words such as backend, frontend, pull request, or merge stay as they are in both languages.
+
+| Engine | Spanish voice | English voice |
+| --- | --- | --- |
+| Kokoro | `ef_dora` | `af_heart` (same `voices-v1.0.bin`) |
+| VibeVoice | `sp-Spk0_woman` | `en-Emma_woman` (same code archive) |
+| Piper | Daniela | none: English text is read with the Spanish voice |
+
+Voice AI writes the spoken text in the language the voice will use.
 
 ## Commands
 
@@ -108,6 +130,7 @@ Whisper runs locally after you accept its download. The transcript that can be s
 | `/gentle-voice purge` | Show the delete plan. Nothing is removed until you confirm |
 | `/gentle-voice stream auto\|pcm\|wav` | VibeVoice playback. See below |
 | `/gentle-voice tts kokoro\|piper\|vibevoice` | Choose the engine. `kokoro` offers to install it when missing |
+| `/gentle-voice lang auto\|es\|en` | Language you speak and the voice answers in. See [Languages](#languages) |
 | `/gentle-voice vibevoice-setup` | Short confirm, then install. `plan` prints the full terms |
 | `/gentle-voice voice-ai on\|off\|status` | Optional second model that writes the spoken text |
 | `/gentle-voice add voice-ai` | Add an empty `voice-ai` role to every existing profile, and list it in `/gentle:models` |
@@ -145,7 +168,7 @@ The narrator uses whatever provider that model already uses. That can be a remot
 
 Kokoro is the recommended engine. It speaks Spanish with the `ef_dora` voice on the CPU and does not need a GPU. On the machine where it was measured, the model loads in about 1.4 s and 4.6 s of audio took about 1.1 s to synthesize.
 
-`/gentle-voice tts kokoro`, or the first-launch menu, asks before installing. Accepting downloads two pinned files from the [kokoro-onnx model release](https://github.com/thewh1teagle/kokoro-onnx/releases/tag/model-files-v1.1): `kokoro-v1.0.fp16.onnx` (163527961 bytes) and `voices-v1.0.bin` (28214398 bytes). Both are checked by size and sha256 before use; a file that does not match is deleted. Then it creates a private Python environment and installs `kokoro-onnx==0.6.1` without a pip cache. The total is about 390 MB. A Python 3.11 to 3.14 must exist to create that environment; nothing is installed system-wide and sudo is not used.
+`/gentle-voice tts kokoro`, or the first-launch menu, asks before installing. Accepting downloads two pinned files from the [kokoro-onnx model release](https://github.com/thewh1teagle/kokoro-onnx/releases/tag/model-files-v1.1): `kokoro-v1.0.fp16.onnx` (163527961 bytes) and `voices-v1.0.bin` (28214398 bytes). Both are checked by size and sha256 before use; a file that does not match is deleted. Then it creates a private Python environment and installs `kokoro-onnx==0.6.1` without a pip cache. The total measured on Linux x64 with Python 3.14 is 368.9 MB: 191.7 MB of model files and 177.1 MB of Python environment. A Python 3.11 to 3.14 must exist to create that environment; nothing is installed system-wide and sudo is not used.
 
 The directory is `$XDG_DATA_HOME/gentle-voice/kokoro`, or `~/.local/share/gentle-voice/kokoro`. `GENTLE_VOICE_KOKORO_HOME` overrides it. The worker starts on the first Kokoro utterance, stays loaded for the session, and stops when you switch engines or close the session.
 
@@ -211,6 +234,22 @@ WSLg exposes the Windows microphone and speakers only through its PulseAudio ser
 | Bridge configured, no source in PipeWire | After you confirm, runs `systemctl --user restart pipewire.service wireplumber.service` |
 
 A PipeWire graph that already lists an audio source counts as ready, wherever its tunnel is configured. The bridge is user-level only. Both tunnels are `nofail`: if WSLg's audio server is down when PipeWire starts, PipeWire still starts without them, and the next setup offers the restart. An existing drop-in that already points at `/mnt/wslg/PulseServer` is reused. `pipewire-pulse` is not enabled, because `PULSE_SERVER` already points at WSLg. The user services need `systemd=true` under `[boot]` in `/etc/wsl.conf`.
+
+## Disk usage
+
+Measured on Linux x64. Only the package comes with `pi install`; everything else is downloaded after you accept it, into the private data directory.
+
+| Component | Needed for | On disk |
+| --- | --- | --- |
+| npm package | Everything | 2.1 MB (1.4 MB download) |
+| Whisper (`whisper-cli` 28.1 MB + `ggml-base-q5_1` 59.7 MB) | Speech to text, Spanish and English | 87.8 MB |
+| Silero model | Hands-free conversation | 2.3 MB |
+| sherpa-onnx runtime | Runs Silero. Reused from Gentle Shell when present | 33.4 MB (11.1 MB download) |
+| Kokoro (model files 191.7 MB + Python environment 177.1 MB) | Recommended voice, CPU | 368.9 MB |
+| Piper (binary 52.6 MB + Daniela voice 114.2 MB) | Light fallback voice | 166.8 MB |
+| VibeVoice | Optional GPU voice | about 8.6 GB (measured lab tree) |
+
+A typical install (package, Whisper, Silero, and Kokoro) takes about 495 MB, or about 461 MB when Gentle Shell's runtime is reused. Up to 0.2.0, Silero ran on `onnxruntime-node`, an optional npm dependency that installed 548 MB (CUDA and every platform) with the package, without asking. That same install took about 1 GB.
 
 ## Where data lives
 

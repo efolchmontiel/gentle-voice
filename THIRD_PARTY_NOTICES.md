@@ -29,7 +29,7 @@ tarball) come from upstream projects. First-run consent must surface these terms
 ## Silero VAD (optional)
 
 - Model: https://github.com/snakers4/silero-vad — **MIT**
-- Runtime (optionalDependency): `onnxruntime-node` — **MIT**
+- Runtime: `sherpa-onnx-node` and its platform package, pinned to 1.13.8 — **Apache-2.0**. The platform package bundles ONNX Runtime — **MIT**. Downloaded from the npm registry with sha512 checks, after the user accepts, into the private data directory; not an npm dependency of this package. When Gentle Shell already installed the same runtime, it is reused.
 - Not required for install: without the model/runtime, Gentle Voice keeps energy VAD.
 - Do not vendor BUSL wrappers from other Pi voice packages.
 

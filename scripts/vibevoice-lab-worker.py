@@ -151,6 +151,7 @@ def _load():
 		"model": model,
 		"cached": cached,
 		"torch": torch,
+		"safe_globals": [BaseModelOutputWithPast, DynamicCache],
 	}
 
 	_state("WARMING")
@@ -173,6 +174,19 @@ def _load():
 	return ctx, timeline
 
 
+def _voice_prompt(ctx: dict, voice_pt: str):
+	"""Loads another voice preset once per worker; each synth deep-copies it."""
+	extra = ctx.setdefault("extra_voices", {})
+	if voice_pt not in extra:
+		path = Path(voice_pt)
+		if path.suffix != ".pt" or not path.is_file():
+			raise FileNotFoundError(f"voice_missing:{path.name}")
+		torch = ctx["torch"]
+		with torch.serialization.safe_globals(ctx["safe_globals"]):
+			extra[voice_pt] = torch.load(str(path), map_location=ctx["device"], weights_only=False)
+	return extra[voice_pt]
+
+
 def _synth(
 	ctx: dict,
 	text: str,
@@ -181,12 +195,13 @@ def _synth(
 	stop_event: threading.Event | None = None,
 	stream: bool = False,
 	req_id: str | None = None,
+	voice_pt: str = "",
 ) -> dict:
 	torch = ctx["torch"]
 	device = ctx["device"]
 	processor = ctx["processor"]
 	model = ctx["model"]
-	cached = ctx["cached"]
+	cached = _voice_prompt(ctx, voice_pt) if voice_pt else ctx["cached"]
 	metrics: dict = {
 		"ok": False,
 		"dtype": ctx["dtype"],
@@ -424,8 +439,9 @@ def main() -> int:
 				_emit({"op": "error", "req_id": req_id, "error": "missing_text_or_out_wav"})
 				continue
 			stop_event = threading.Event()
+			voice_pt = str(msg.get("voice_pt") or "")
 
-			def _run(text=text, out_wav=out_wav, req_id=req_id, stop_event=stop_event, stream=stream) -> None:
+			def _run(text=text, out_wav=out_wav, req_id=req_id, stop_event=stop_event, stream=stream, voice_pt=voice_pt) -> None:
 				try:
 					metrics = _synth(
 						ctx,
@@ -435,6 +451,7 @@ def main() -> int:
 						stop_event=stop_event,
 						stream=stream,
 						req_id=req_id,
+						voice_pt=voice_pt,
 					)
 					if metrics.get("ok"):
 						_emit({"op": "result", "req_id": req_id, **metrics})

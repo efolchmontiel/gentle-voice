@@ -28,6 +28,7 @@ import {
 
 export const VIBEVOICE_TTS_ID = "vibevoice" as const;
 export const VIBEVOICE_PREFERRED_VOICE = "sp-Spk0_woman" as const;
+export const VIBEVOICE_ENGLISH_VOICE = "en-Emma_woman" as const;
 export const VIBEVOICE_MODEL_SAFETENSORS_BYTES = 2_035_332_888;
 export const VIBEVOICE_SAMPLE_RATE_HZ = 24_000;
 
@@ -735,10 +736,15 @@ export function createVibeVoiceTtsAdapter(
 				}
 				throwIfAborted(signal);
 
+				// The English preset ships in the same code archive; without it the Spanish voice reads the text.
+				const englishPt = options.language === "en"
+					? resolveVoicePt(probe.home, VIBEVOICE_ENGLISH_VOICE)
+					: undefined;
+				const voiceField = englishPt ? { voice_pt: englishPt } : {};
 				const msg = await worker.request(
 					streamPcm
-						? { op: "synth", text: trimmed, stream: true }
-						: { op: "synth", text: trimmed, out_wav: wavPath },
+						? { op: "synth", text: trimmed, stream: true, ...voiceField }
+						: { op: "synth", text: trimmed, out_wav: wavPath, ...voiceField },
 					signal,
 					timeoutMs,
 					streamPcm ? options.onPcm : undefined,

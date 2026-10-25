@@ -25,6 +25,13 @@ import {
 import { formatListenHint } from "../lib/vad/listen-stats.ts";
 import { readCapabilities } from "../lib/runtime/capabilities.ts";
 import { completeConversationSetup, formatConversationSetup } from "../lib/runtime/conversation-setup.ts";
+import {
+	gentleShellSherpaRuntimeDir,
+	privateSherpaRuntimeDir,
+	resolveSherpaRuntime,
+	sherpaPackages,
+	sherpaTarget,
+} from "../lib/vad/sherpa-runtime.ts";
 
 function isolatedEnv(root: string): NodeJS.ProcessEnv {
 	return {
@@ -56,6 +63,16 @@ function host(input: {
 }
 
 const loadOk = async () => ({ ok: true as const, engine: { dispose() {} } });
+
+/** Files the resolver checks; no native code is loaded in these tests. */
+async function fakeRuntime(dir: string): Promise<void> {
+	const target = sherpaTarget()!;
+	for (const pkg of sherpaPackages(target)) {
+		const file = join(dir, "node_modules", pkg.name, pkg.requiredFile);
+		await mkdir(dirname(file), { recursive: true });
+		await writeFile(file, "");
+	}
+}
 
 async function writeBytes(path: string, size: number): Promise<void> {
 	await mkdir(dirname(path), { recursive: true });
@@ -111,14 +128,18 @@ test("accepted download verifies size, initializes, and checks the microphone", 
 				fetch: async (dest) => {
 					await writeBytes(dest, SILERO_VAD_BYTES);
 				},
+				installRuntime: async () => {
+					await fakeRuntime(privateSherpaRuntimeDir(sherpaTarget()!, env));
+				},
 			},
 		});
 		assert.equal(plan.status, "ready");
+		assert.equal(resolveSherpaRuntime(env)?.source, "gentle-voice");
 		assert.equal((await stat(plan.path)).size, SILERO_VAD_BYTES);
 		assert.equal((await readFile(`${plan.path}.sha256`, "utf8")).includes(String(SILERO_VAD_BYTES)), true);
 		assert.deepEqual(asked.statuses, [
 			"Checking Silero VAD",
-			"Downloading Silero model",
+			"Downloading Silero",
 			"Verifying model integrity",
 			"Initializing VAD",
 			"Verifying microphone capture",
@@ -136,6 +157,7 @@ test("present model is reused silently without installation chrome or downloads"
 	try {
 		const env = isolatedEnv(root);
 		await writeBytes(sileroModelPath(env), SILERO_VAD_BYTES);
+		await fakeRuntime(privateSherpaRuntimeDir(sherpaTarget()!, env));
 		let fetches = 0;
 		const asked = host({
 			confirm: async () => { throw new Error("must not ask"); },
@@ -196,19 +218,20 @@ test("download disabled after consent does not fetch", async () => {
 	}
 });
 
-test("ONNX runtime failure keeps the model and stays on energy", async () => {
+test("runtime load failure keeps the model and stays on energy", async () => {
 	const root = await mkdtemp(join(tmpdir(), "gv-silero-"));
 	try {
 		const env = isolatedEnv(root);
 		await writeBytes(sileroModelPath(env), SILERO_VAD_BYTES);
+		await fakeRuntime(privateSherpaRuntimeDir(sherpaTarget()!, env));
 		const asked = host({ captureReady: async () => true });
 		const plan = await driveSileroInstall(asked, {
 			env,
-			loadVad: async () => ({ ok: false, reason: "onnxruntime_node_missing" }),
+			loadVad: async () => ({ ok: false, reason: "silero_session_failed:boom" }),
 		});
 		assert.equal(plan.status, "ready");
 		assert.equal((await stat(plan.path)).size, SILERO_VAD_BYTES);
-		assert.match(asked.notes.join("\n"), /onnxruntime_node_missing/);
+		assert.match(asked.notes.join("\n"), /silero_session_failed/);
 		assert.match(asked.notes.join("\n"), /Energy fallback/);
 	} finally {
 		await rm(root, { recursive: true, force: true });
@@ -220,6 +243,7 @@ test("microphone without capture is reported after Silero initializes", async ()
 	try {
 		const env = isolatedEnv(root);
 		await writeBytes(sileroModelPath(env), SILERO_VAD_BYTES);
+		await fakeRuntime(privateSherpaRuntimeDir(sherpaTarget()!, env));
 		const asked = host({ captureReady: async () => false });
 		await driveSileroInstall(asked, { env, loadVad: loadOk });
 		assert.match(asked.notes.join("\n"), /Microphone capture is not available/);
@@ -365,4 +389,79 @@ test("energy threshold and barge-in contract stay put", () => {
 	assert.equal(resolveBargeActivation({ preference: "unset", fluentConversation: true }).enabled, true);
 	assert.equal(resolveBargeActivation({ preference: "off", fluentConversation: true }).enabled, false);
 	assert.equal(sileroPreferencePath({ HOME: "/tmp/gv-unused", XDG_DATA_HOME: "/tmp/gv-unused/xdg" }).endsWith("vad.json"), true);
+});
+
+test("the consent names both parts, what Silero does and the energy fallback", async () => {
+	const root = await mkdtemp(join(tmpdir(), "gv-silero-"));
+	try {
+		const env = isolatedEnv(root);
+		let body = "";
+		const asked = host({ confirm: async () => false });
+		asked.confirm = async (_title, message) => {
+			body = message;
+			return false;
+		};
+		await driveSileroInstall(asked, { env, loadVad: loadOk });
+		assert.match(body, /start and stop talking/);
+		assert.match(body, /Silero model: ~2\.2 MiB \(MIT\)/);
+		assert.match(body, /ONNX runtime \(sherpa-onnx/);
+		assert.match(body, /Apache-2\.0/);
+		assert.match(body, /energy detector/);
+	} finally {
+		await rm(root, { recursive: true, force: true });
+	}
+});
+
+test("a present model with a missing runtime installs only the runtime", async () => {
+	const root = await mkdtemp(join(tmpdir(), "gv-silero-"));
+	try {
+		const env = isolatedEnv(root);
+		await writeBytes(sileroModelPath(env), SILERO_VAD_BYTES);
+		const before = await planSileroInstall(env);
+		assert.equal(before.status, "missing");
+		assert.equal(before.status === "missing" && before.modelPresent, true);
+		let fetches = 0;
+		let runtimes = 0;
+		let body = "";
+		const asked = host({ captureReady: async () => true });
+		asked.confirm = async (_title, message) => {
+			body = message;
+			return true;
+		};
+		const plan = await driveSileroInstall(asked, {
+			env,
+			loadVad: loadOk,
+			io: {
+				fetch: async () => { fetches += 1; },
+				installRuntime: async () => {
+					runtimes += 1;
+					await fakeRuntime(privateSherpaRuntimeDir(sherpaTarget()!, env));
+				},
+			},
+		});
+		assert.equal(fetches, 0);
+		assert.equal(runtimes, 1);
+		assert.match(body, /Silero model: already downloaded/);
+		assert.equal(plan.status, "ready");
+	} finally {
+		await rm(root, { recursive: true, force: true });
+	}
+});
+
+test("Gentle Shell's dictation runtime is reused and nothing is asked", async () => {
+	const root = await mkdtemp(join(tmpdir(), "gv-silero-"));
+	try {
+		const env = { ...isolatedEnv(root), GENTLE_PI_CONFIG_HOME: join(root, "gentle-ai") };
+		await writeBytes(sileroModelPath(env), SILERO_VAD_BYTES);
+		await fakeRuntime(gentleShellSherpaRuntimeDir(sherpaTarget()!, env));
+		assert.equal(resolveSherpaRuntime(env)?.source, "gentle-shell");
+		const asked = host({
+			confirm: async () => { throw new Error("must not ask"); },
+			captureReady: async () => true,
+		});
+		const plan = await driveSileroInstall(asked, { env, loadVad: loadOk });
+		assert.equal(plan.status, "ready");
+	} finally {
+		await rm(root, { recursive: true, force: true });
+	}
 });
