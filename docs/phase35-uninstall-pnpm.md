@@ -104,4 +104,4 @@ npx --package gentle-voice gentle-voice-cleanup --keep-models
 npx --package gentle-voice gentle-voice-cleanup --keep-models --confirm DELETE_GENTLE_VOICE_DATA
 ```
 
-Or while the extension is still installed: `/gentle:voice purge --keep-models` then confirm.
+Or while the extension is still installed: `/gentle-voice purge --keep-models` then confirm.

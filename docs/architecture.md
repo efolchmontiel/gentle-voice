@@ -16,7 +16,7 @@
 
 | Layer | Responsibility |
 | --- | --- |
-| `extensions/voice.ts` | Pi registration (`/gentle:voice`, gated shortcut, lifecycle hooks) |
+| `extensions/voice.ts` | Pi registration (`/gentle-voice`, gated shortcut, lifecycle hooks) |
 | `lib/commands.ts` | Argument parsing |
 | `lib/config.ts` | Schema + path resolution via env |
 | `lib/engines/*` | Detection, install **plans** (simulated), hardware, models, setup |
@@ -56,7 +56,7 @@ Adapters remain independent so engines can be swapped later.
 
 Preferred: `Ctrl+Alt+Space`. Register **only** after availability is verified.  
 If conflict/unverifiable → stay disabled. Never auto-bind a different chord.  
-`/gentle:voice` remains the universal command.
+`/gentle-voice` remains the universal command.
 
 ## Phase 1 boundary
 

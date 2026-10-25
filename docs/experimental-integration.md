@@ -4,7 +4,7 @@ Gentle Voice is a **pi-package**. It does **not** require Gentle Shell. Gentle S
 
 ## Phase 1C status
 
-- Contracts, state machine, config schema, stub adapters, `/gentle:voice` registration.
+- Contracts, state machine, config schema, stub adapters, `/gentle-voice` registration.
 - Engine manager: detection scenarios A–E, simulated install plans, hardware-aware model picks, setup modes.
 - **Real filesystem probe** (`createFilesystemEngineProbe`) — read-only; reuses Piper + Voxtype ggml paths when present.
 - Pi ExtensionAPI harness (commands, widget, `agent_settled`) without LLM tokens.
@@ -55,8 +55,8 @@ pi --extension /home/erickfm/D-SSD/personal/projects/gentle-voice/extensions/voi
 ```
 
 ```text
-/gentle:voice status
-/gentle:voice config
+/gentle-voice status
+/gentle-voice config
 ```
 
 ## Load against Gentle Shell (compatibility lab only)

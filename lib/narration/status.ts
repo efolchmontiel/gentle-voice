@@ -1,5 +1,5 @@
 /**
- * /gentle:voice voice-ai status — real effective values, no sample models.
+ * /gentle-voice voice-ai status — real effective values, no sample models.
  */
 
 import type { NarrationDiagnostics, NarratorResolution, NarratorSource } from "./types.ts";

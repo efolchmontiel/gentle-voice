@@ -220,7 +220,7 @@ test("2D.4 edit: no prior transcript warns; with text loads editor", async () =>
 		shortcutProbe: allowlistShortcutProbe(["ctrl+alt+space", "ctrl+alt+e"]),
 	});
 	session.dispatch({ type: "ENABLE" });
-	await harness.runCommand("gentle:voice", "edit");
+	await harness.runCommand("gentle-voice", "edit");
 	assert.ok(harness.notifies.some((n) => /No voice transcript/i.test(n.message)));
 
 	await session.submitPending("un parro de texto");
@@ -228,7 +228,7 @@ test("2D.4 edit: no prior transcript warns; with text loads editor", async () =>
 	// Edit refuses mid-agent turn — settle/stop first (matches human Esc then Edit).
 	session.dispatch({ type: "STOP" });
 	await session.flush();
-	await harness.runCommand("gentle:voice", "edit");
+	await harness.runCommand("gentle-voice", "edit");
 	assert.equal(session.editHold, true);
 	assert.equal(harness.ctx.ui.getEditorText?.(), "un parro de texto");
 	assert.ok(

@@ -235,6 +235,6 @@ export function createPiperTtsAdapter(options: PiperTtsAdapterOptions): PiperTts
  */
 export { resolveLabPiperPaths as resolveLabPiperDefaults } from "../runtime/lab-paths.ts";
 
-/** Fixed phrase for `/gentle:voice test-speak` (lab). */
+/** Fixed phrase for `/gentle-voice test-speak` (lab). */
 export const LAB_TEST_SPEAK_PHRASE =
 	"Hola, soy Gentle Voice. Esta es una prueba de respuesta hablada.";

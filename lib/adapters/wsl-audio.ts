@@ -205,7 +205,7 @@ function manualBridgeSteps(configPath: string): string {
 		`1. Write the PipeWire drop-in ${configPath} (pulse-tunnel to RDPSource/RDPSink).`,
 		`2. Run: ${WSL_SYSTEMCTL_ENABLE.join(" ")}`,
 		`3. Run: ${WSL_SYSTEMCTL_RESTART.join(" ")}`,
-		"Then run /gentle:voice setup again.",
+		"Then run /gentle-voice setup again.",
 	].join("\n");
 }
 
@@ -252,13 +252,13 @@ export async function driveWslAudioBridge(
 			return plan;
 		case "packages-missing":
 			host.notify(
-				`WSL detected. Microphone capture needs PipeWire. Run:\n${plan.command}\nThen run /gentle:voice setup again.`,
+				`WSL detected. Microphone capture needs PipeWire. Run:\n${plan.command}\nThen run /gentle-voice setup again.`,
 				"warning",
 			);
 			return plan;
 		case "wslg-unresponsive":
 			host.notify(
-				"WSL detected, but the WSLg audio server is not responding (`pactl list short sources` failed or timed out). Run `wsl --shutdown` in Windows, reopen WSL, then /gentle:voice setup again.",
+				"WSL detected, but the WSLg audio server is not responding (`pactl list short sources` failed or timed out). Run `wsl --shutdown` in Windows, reopen WSL, then /gentle-voice setup again.",
 				"warning",
 			);
 			return plan;
@@ -300,7 +300,7 @@ export async function driveWslAudioBridge(
 		if (!result.ok) {
 			const reason = (result.stderr ?? "").trim() || "systemctl failed";
 			host.notify(
-				`Wrote ${plan.configPath}, but \`${command.join(" ")}\` failed (${reason}). WSL needs systemd: set systemd=true under [boot] in /etc/wsl.conf, run \`wsl --shutdown\`, then /gentle:voice setup again.`,
+				`Wrote ${plan.configPath}, but \`${command.join(" ")}\` failed (${reason}). WSL needs systemd: set systemd=true under [boot] in /etc/wsl.conf, run \`wsl --shutdown\`, then /gentle-voice setup again.`,
 				"warning",
 			);
 			return { kind: "services-failed", reason };

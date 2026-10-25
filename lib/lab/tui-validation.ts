@@ -36,7 +36,7 @@ export function buildPhase1cTuiReport(options?: {
 	const items: TuiCheckItem[] = [
 		{
 			id: "cmd-register",
-			label: "/gentle:voice registers",
+			label: "/gentle-voice registers",
 			status: harnessCommandsOk ? "simulated" : "pending_human",
 			evidence: harnessCommandsOk
 				? "Pi harness registerCommand + subcommands"
@@ -132,10 +132,10 @@ Do **not** send any prompt that would call an LLM. Use slash commands only.
 
 ## Checks
 
-1. Type \`/gentle:voice status\` — expect platform/engines lines (notify).
-2. \`/gentle:voice on\` then \`/gentle:voice listen\` — widget above input.
-3. \`/gentle:voice stop\` — widget clears; editor still accepts typing.
-4. \`/gentle:voice mute\` / \`mute off\` / \`off\` — no crashes.
+1. Type \`/gentle-voice status\` — expect platform/engines lines (notify).
+2. \`/gentle-voice on\` then \`/gentle-voice listen\` — widget above input.
+3. \`/gentle-voice stop\` — widget clears; editor still accepts typing.
+4. \`/gentle-voice mute\` / \`mute off\` / \`off\` — no crashes.
 5. Press **Ctrl+Alt+Space** once — note if Pi/GS receives it (widget toggle?).
 6. Confirm Ghostty/Hyprland did not steal the chord (no desktop switch).
 7. Quit without saving global settings.

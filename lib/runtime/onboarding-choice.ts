@@ -376,7 +376,7 @@ export function explainVibeVoiceSetup(status: string, reason: string): string {
 		return `The Spanish voice could not be installed. You can retry without downloading the model again.\nDetail: ${reason}`;
 	}
 	if (status === "partial") {
-		return `Verified files were kept. Run /gentle:voice vibevoice-setup again to finish the missing pieces.\nDetail: ${reason}`;
+		return `Verified files were kept. Run /gentle-voice vibevoice-setup again to finish the missing pieces.\nDetail: ${reason}`;
 	}
 	if (status === "installed" || status === "reused") {
 		return "VibeVoice files verified.";

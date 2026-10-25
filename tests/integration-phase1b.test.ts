@@ -23,7 +23,7 @@ async function labLog(line: string): Promise<void> {
 	await appendLabLog("phase1b-access.log", line);
 }
 
-test("Pi harness: /gentle:voice registers and runs subcommands without LLM", async () => {
+test("Pi harness: /gentle-voice registers and runs subcommands without LLM", async () => {
 	const harness = createPiHostHarness();
 	createVoiceExtension(harness.pi, {
 		config: { ...DEFAULT_VOICE_CONFIG, enabled: false },

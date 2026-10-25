@@ -234,7 +234,7 @@ export function formatVibeVoiceConsent(plan: VibeVoiceInstallPlan): string {
 		"This is not a commercial authorization.",
 		"",
 		"Full terms, hashes, and file list:",
-		"  /gentle:voice vibevoice-setup plan",
+		"  /gentle-voice vibevoice-setup plan",
 	].join("\n");
 }
 

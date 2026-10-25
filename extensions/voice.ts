@@ -694,7 +694,7 @@ export function createVoiceExtension(pi: VoiceHostApi, options: VoiceExtensionOp
 			? formatCorrectionDiff(corr)
 			: `🎙 Transcript (review — not sent):\n${text}`;
 		lastCtx.ui.notify(
-			[head, "", "Edit: /gentle:voice draft <texto>\nSend: /gentle:voice send"].join("\n"),
+			[head, "", "Edit: /gentle-voice draft <texto>\nSend: /gentle-voice send"].join("\n"),
 			"info",
 		);
 	};
@@ -836,7 +836,7 @@ export function createVoiceExtension(pi: VoiceHostApi, options: VoiceExtensionOp
 			const installNow = vibeVoiceInstallSnapshot();
 			if (installNow.running && parsed.command === "vibevoice-setup" && parsed.rest.trim() !== "plan") {
 				ctx.ui.notify(
-					`${installNow.message}\nVibeVoice installation is already running. /gentle:voice vibevoice-setup cancel stops it.`,
+					`${installNow.message}\nVibeVoice installation is already running. /gentle-voice vibevoice-setup cancel stops it.`,
 					"info",
 				);
 				return;
@@ -867,17 +867,17 @@ export function createVoiceExtension(pi: VoiceHostApi, options: VoiceExtensionOp
 							choice.fallbackReason
 								? "PCM unsupported on this host; using WAV for VibeVoice."
 								: "PCM is the default when pw-play supports float32.",
-							"WAV: /gentle:voice stream wav",
-							"PCM: /gentle:voice stream pcm   auto: /gentle:voice stream auto",
+							"WAV: /gentle-voice stream wav",
+							"PCM: /gentle-voice stream pcm   auto: /gentle-voice stream auto",
 							"This process: GENTLE_VOICE_VIBEVOICE_NATIVE_STREAM=0 forces WAV (overrides the file).",
-							"Does not change Piper vs VibeVoice. Engine: /gentle:voice tts (lab) or GENTLE_VOICE_TTS.",
+							"Does not change Piper vs VibeVoice. Engine: /gentle-voice tts (lab) or GENTLE_VOICE_TTS.",
 						].join("\n"),
 						"info",
 					);
 					return;
 				}
 				if (arg !== "auto" && arg !== "pcm" && arg !== "wav") {
-					ctx.ui.notify("Usage: /gentle:voice stream auto|pcm|wav|status", "warning");
+					ctx.ui.notify("Usage: /gentle-voice stream auto|pcm|wav|status", "warning");
 					return;
 				}
 				writeVibeVoicePlaybackPreference(voiceHome, arg as VibeVoicePlaybackPreference);
@@ -918,7 +918,7 @@ export function createVoiceExtension(pi: VoiceHostApi, options: VoiceExtensionOp
 				const on = arg === "on" || arg === "1" || arg === "true";
 				const off = arg === "off" || arg === "0" || arg === "false";
 				if (!on && !off) {
-					ctx.ui.notify("Usage: /gentle:voice converse-style on|off|status", "warning");
+					ctx.ui.notify("Usage: /gentle-voice converse-style on|off|status", "warning");
 					return;
 				}
 				const st = writeConverseStyleState(voiceHome, on);
@@ -937,7 +937,7 @@ export function createVoiceExtension(pi: VoiceHostApi, options: VoiceExtensionOp
 			if (parsed.command === "add") {
 				const arg = parsed.rest.trim().toLowerCase();
 				if (arg !== "voice-ai") {
-					ctx.ui.notify("Usage: /gentle:voice add voice-ai", "warning");
+					ctx.ui.notify("Usage: /gentle-voice add voice-ai", "warning");
 					return;
 				}
 				let result: ReturnType<typeof ensureVoiceAiRoles>;
@@ -956,7 +956,7 @@ export function createVoiceExtension(pi: VoiceHostApi, options: VoiceExtensionOp
 							result.agentCreated
 								? `voice-ai is now listed in /gentle:models (${result.agentPath}).`
 								: `voice-ai agent file: ${result.agentPath}.`,
-							`No profiles file at ${result.path}. Create a profile with /gentle:profiles, then run /gentle:voice add voice-ai.`,
+							`No profiles file at ${result.path}. Create a profile with /gentle:profiles, then run /gentle-voice add voice-ai.`,
 						].join("\n"),
 						"warning",
 					);
@@ -1031,7 +1031,7 @@ export function createVoiceExtension(pi: VoiceHostApi, options: VoiceExtensionOp
 				const on = arg === "on" || arg === "1" || arg === "true";
 				const off = arg === "off" || arg === "0" || arg === "false";
 				if (!on && !off) {
-					ctx.ui.notify("Usage: /gentle:voice voice-ai on|off|status", "warning");
+					ctx.ui.notify("Usage: /gentle-voice voice-ai on|off|status", "warning");
 					return;
 				}
 				writeVoiceAiPreference(resolveVoiceHomeForPreference(), on ? "on" : "off");
@@ -1070,7 +1070,7 @@ export function createVoiceExtension(pi: VoiceHostApi, options: VoiceExtensionOp
 				const on = arg === "on" || arg === "1" || arg === "true";
 				const off = arg === "off" || arg === "0" || arg === "false";
 				if (!on && !off) {
-					ctx.ui.notify("Usage: /gentle:voice barge-in on|off|status", "warning");
+					ctx.ui.notify("Usage: /gentle-voice barge-in on|off|status", "warning");
 					return;
 				}
 				writeBargePreference(resolveVoiceHomeForBarge(), on ? "on" : "off");
@@ -1134,7 +1134,7 @@ export function createVoiceExtension(pi: VoiceHostApi, options: VoiceExtensionOp
 				if (outcome === "muted") {
 					ctx.ui.notify("Muted — TTS skipped (mic/STT still work).", "warning");
 				} else if (outcome === "disabled") {
-					ctx.ui.notify("Voice is off. Use /gentle:voice on first.", "warning");
+					ctx.ui.notify("Voice is off. Use /gentle-voice on first.", "warning");
 				} else if (outcome === "played") {
 					ctx.ui.notify("test-speak: done.", "info");
 				} else if (outcome === "empty") {
@@ -1208,7 +1208,7 @@ export function createVoiceExtension(pi: VoiceHostApi, options: VoiceExtensionOp
 				const eng = parsed.rest.trim().toLowerCase();
 				if (eng !== "piper" && eng !== "kokoro" && eng !== "vibevoice") {
 					ctx.ui.notify(
-						`Usage: /gentle:voice tts piper|kokoro|vibevoice\nactive=${resolved.ttsKind} kokoroReady=${resolved.kokoroReady} vibevoiceReady=${resolved.vibevoiceReady}`,
+						`Usage: /gentle-voice tts piper|kokoro|vibevoice\nactive=${resolved.ttsKind} kokoroReady=${resolved.kokoroReady} vibevoiceReady=${resolved.vibevoiceReady}`,
 						"warning",
 					);
 					return;
@@ -1284,7 +1284,7 @@ export function createVoiceExtension(pi: VoiceHostApi, options: VoiceExtensionOp
 				}
 				if (!Number.isInteger(phraseIndex) || phraseIndex < 0 || phraseIndex >= AB_COMPARE_PHRASES.length) {
 					ctx.ui.notify(
-						`Usage: /gentle:voice ab-compare [0-${AB_COMPARE_PHRASES.length - 1}] [piper|kokoro|vibevoice]\nPhrases:\n${
+						`Usage: /gentle-voice ab-compare [0-${AB_COMPARE_PHRASES.length - 1}] [piper|kokoro|vibevoice]\nPhrases:\n${
 							AB_COMPARE_PHRASES.map((p, i) => `  ${i}: ${p}`).join("\n")
 						}`,
 						"warning",
@@ -1387,7 +1387,7 @@ export function createVoiceExtension(pi: VoiceHostApi, options: VoiceExtensionOp
 						formatAbCompareStatus(abSession),
 						"",
 						`Played #${phraseIndex} via ${trial.providerId} (${trial.synthesizeMs}ms wall).`,
-						`Rate: /gentle:voice ab-score ${phraseIndex} <1-5>`,
+						`Rate: /gentle-voice ab-score ${phraseIndex} <1-5>`,
 						`Installed: ${installed.map((s) => s.info.id).join(", ")}`,
 						research.length
 							? `Not selectable: ${research.map((r) => r.id).join(", ")}`
@@ -1406,7 +1406,7 @@ export function createVoiceExtension(pi: VoiceHostApi, options: VoiceExtensionOp
 					return;
 				}
 				if (!abSession || abSession.trials.length === 0) {
-					ctx.ui.notify("No A/B trials yet. Run /gentle:voice ab-compare first.", "warning");
+					ctx.ui.notify("No A/B trials yet. Run /gentle-voice ab-compare first.", "warning");
 					return;
 				}
 				const parts = parsed.rest.trim().split(/\s+/);
@@ -1472,7 +1472,7 @@ export function createVoiceExtension(pi: VoiceHostApi, options: VoiceExtensionOp
 						ctx.ui.notify(
 							session.pendingReviewText
 								? `Current draft:\n${session.pendingReviewText}`
-								: "No pending draft. Listen first or: /gentle:voice draft <text>",
+								: "No pending draft. Listen first or: /gentle-voice draft <text>",
 							"info",
 						);
 						break;
@@ -1492,7 +1492,7 @@ export function createVoiceExtension(pi: VoiceHostApi, options: VoiceExtensionOp
 					} else if (outcome === "busy") {
 						ctx.ui.notify("Busy — wait for the agent/TTS to finish.", "warning");
 					} else if (outcome === "disabled") {
-						ctx.ui.notify("Voice is off. Use /gentle:voice on first.", "warning");
+						ctx.ui.notify("Voice is off. Use /gentle-voice on first.", "warning");
 					}
 					break;
 				}
@@ -1508,7 +1508,7 @@ export function createVoiceExtension(pi: VoiceHostApi, options: VoiceExtensionOp
 						break;
 					}
 					if (!on && !off) {
-						ctx.ui.notify("Usage: /gentle:voice converse on|off", "warning");
+						ctx.ui.notify("Usage: /gentle-voice converse on|off", "warning");
 						break;
 					}
 					if (on) {
@@ -1543,8 +1543,8 @@ export function createVoiceExtension(pi: VoiceHostApi, options: VoiceExtensionOp
 								"",
 								"This does NOT uninstall the npm package.",
 								"To delete private data after reviewing paths:",
-								`  /gentle:voice purge --confirm ${CLEANUP_CONFIRM_TOKEN}`,
-								`  /gentle:voice purge --keep-models --confirm ${CLEANUP_CONFIRM_TOKEN}`,
+								`  /gentle-voice purge --confirm ${CLEANUP_CONFIRM_TOKEN}`,
+								`  /gentle-voice purge --keep-models --confirm ${CLEANUP_CONFIRM_TOKEN}`,
 								"Or after package removal: `npx --package gentle-voice gentle-voice-cleanup [--keep-models] --confirm …`",
 								"Never deletes Voxtype / WD-Black / other Pi packages / GS versions.",
 							].join("\n"),
@@ -1746,7 +1746,7 @@ export function createVoiceExtension(pi: VoiceHostApi, options: VoiceExtensionOp
 				?.systemPromptOptions;
 			injectConverseStyleIfEnabled(opts ?? undefined, enabled);
 		});
-		// First-run on host session start — no mandatory /gentle:voice setup.
+		// First-run on host session start — no mandatory /gentle-voice setup.
 		pi.on("session_start", (_event, ctx) => {
 			lastCtx = ctx as VoiceHostCommandContext;
 			bindNarrationHost(lastCtx);

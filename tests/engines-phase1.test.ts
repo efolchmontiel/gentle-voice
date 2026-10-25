@@ -196,7 +196,7 @@ test("11. Ctrl+Alt+Space stays disabled when unverified", async () => {
 	assert.equal(allowed.available, true);
 });
 
-test("12. /gentle:voice registers on host", () => {
+test("12. /gentle-voice registers on host", () => {
 	const commands: string[] = [];
 	const pi: VoiceHostApi = {
 		registerCommand(name) {
