@@ -57,7 +57,7 @@ That model writes the spoken line. The orchestrator model keeps writing the text
 
 Restart the host after installing.
 
-The first launch does not download models by itself. On Linux x64 with Python 3.11 to 3.14, the voice-engine list is `Kokoro`, `VibeVoice`, `Piper`, and `Skip`. Kokoro is recommended: a natural Spanish voice on the CPU, about 390 MB on disk. VibeVoice is the optional GPU engine, labeled `(NVIDIA GPU, larger download)`. Without a usable Python, the list is `VibeVoice`, `Piper`, and `Skip`. Pi highlights the first row, so the recommended engine is listed first with `(Recommended for your system)`. In that shorter list, VibeVoice is recommended only when Linux x64, an NVIDIA GPU of at least 4 GB, 12 GiB free, and `python3` are confirmed. A failed GPU check is labeled `(Compatibility unknown)` and does not count as proof that the GPU is missing. Piper is the recommendation in that case, and when VibeVoice is `(Not supported)`, as long as Piper itself can run. Choosing an engine does not start a download. The install, finish, or repair question comes next. After Yes, Pi keeps a checklist on screen: each real step stays visible as Pending, Running, Completed, Failed, Reused, or Skipped. Notifications are not the progress view. When the checklist finishes, the engine is selected in the current session. `Ready to use` is shown only after that activation. No audio is played. `/gentle-voice status` and `/gentle-voice vibevoice-setup plan` stay available while that runs. `/gentle-voice vibevoice-setup cancel` stops it and keeps verified files. The next launch does not ask again when the install is already verified. Whisper is a separate question. An explicit Kokoro, Piper, or VibeVoice choice is kept. `/gentle-voice setup` repeats the check. It does not install GPU drivers, CUDA, or a system Python.
+The first launch does not download models by itself. The voice-engine list is `VibeVoice`, `Piper`, and `Skip`. Pi highlights the first row, so the recommended engine is listed first with `(Recommended for your system)`. VibeVoice is recommended only when Linux x64, an NVIDIA GPU of at least 4 GB, 12 GiB free, and `python3` are confirmed. A failed GPU check is labeled `(Compatibility unknown)` and does not count as proof that the GPU is missing. Piper is the recommendation in that case, and when VibeVoice is `(Not supported)`, as long as Piper itself can run. Choosing an engine does not start a download. The install, finish, or repair question comes next. After Yes, Pi keeps a checklist on screen: each real step stays visible as Pending, Running, Completed, Failed, Reused, or Skipped. Notifications are not the progress view. When the checklist finishes, the engine is selected in the current session. `Ready to use` is shown only after that activation. No audio is played. `/gentle-voice status` and `/gentle-voice vibevoice-setup plan` stay available while that runs. `/gentle-voice vibevoice-setup cancel` stops it and keeps verified files. The next launch does not ask again when the install is already verified. Whisper is a separate question. An explicit Piper or VibeVoice choice is kept. `/gentle-voice setup` repeats the check. It does not install GPU drivers, CUDA, or a system Python.
 
 Do not pass `--extension` to a Pi that already has `npm:gentle-voice` installed. Pi would register `/gentle-voice` twice. Install with `pi install npm:gentle-voice` or `gentle-shell install npm:gentle-voice`. Both commands install that same npm package.
 
@@ -107,11 +107,13 @@ Whisper runs locally after you accept its download. The transcript that can be s
 | `/gentle-voice storage` | Where this host keeps private data |
 | `/gentle-voice purge` | Show the delete plan. Nothing is removed until you confirm |
 | `/gentle-voice stream auto\|pcm\|wav` | VibeVoice playback. See below |
-| `/gentle-voice tts kokoro\|piper\|vibevoice` | Choose the engine. `kokoro` offers to install it when missing |
+| `/gentle-voice tts piper\|vibevoice` | Engine for this session |
 | `/gentle-voice vibevoice-setup` | Short confirm, then install. `plan` prints the full terms |
 | `/gentle-voice voice-ai on\|off\|status` | Optional second model that writes the spoken text |
 | `/gentle-voice add voice-ai` | Add an empty `voice-ai` role to every existing profile, and list it in `/gentle:models` |
 | `/gentle-voice barge-in on\|off\|status` | Interrupt playback by speaking |
+
+`/gentle-voice tts kokoro` exists only when a lab Kokoro install is present. It is not the product default.
 
 ## Esc
 
@@ -141,19 +143,9 @@ The narrator uses whatever provider that model already uses. That can be a remot
 
 `/gentle-voice voice-ai off` persists. Unset follows the conversation session. `GENTLE_VOICE_AI=0` locks it off while the preference file is unset.
 
-## Kokoro
-
-Kokoro is the recommended engine. It speaks Spanish with the `ef_dora` voice on the CPU and does not need a GPU. On the machine where it was measured, the model loads in about 1.4 s and 4.6 s of audio took about 1.1 s to synthesize.
-
-`/gentle-voice tts kokoro`, or the first-launch menu, asks before installing. Accepting downloads two pinned files from the [kokoro-onnx model release](https://github.com/thewh1teagle/kokoro-onnx/releases/tag/model-files-v1.1): `kokoro-v1.0.fp16.onnx` (163527961 bytes) and `voices-v1.0.bin` (28214398 bytes). Both are checked by size and sha256 before use; a file that does not match is deleted. Then it creates a private Python environment and installs `kokoro-onnx==0.6.1` without a pip cache. The total is about 390 MB. A Python 3.11 to 3.14 must exist to create that environment; nothing is installed system-wide and sudo is not used.
-
-The directory is `$XDG_DATA_HOME/gentle-voice/kokoro`, or `~/.local/share/gentle-voice/kokoro`. `GENTLE_VOICE_KOKORO_HOME` overrides it. The worker starts on the first Kokoro utterance, stays loaded for the session, and stops when you switch engines or close the session.
-
-Licenses: the Kokoro-82M weights are Apache-2.0, `kokoro-onnx` and ONNX Runtime are MIT. Phonemization uses `phonemizer` and `espeak-ng`, both GPL-3.0. They are downloaded into the private environment at install time and are not part of the npm package. See [THIRD_PARTY_NOTICES.md](THIRD_PARTY_NOTICES.md).
-
 ## VibeVoice
 
-VibeVoice is optional. It is the larger GPU engine; Kokoro covers the natural-voice case on the CPU. Piper does not need it, and a missing VibeVoice install does not block Piper.
+VibeVoice is optional. Piper does not need it, and a missing VibeVoice install does not block Piper.
 
 When VibeVoice is selected and `pw-play` can play raw float32, playback is native PCM. You do not set an environment variable for that. `/gentle-voice stream wav` saves WAV for this install. `/gentle-voice stream auto` returns to the default. For one process, `GENTLE_VOICE_VIBEVOICE_NATIVE_STREAM=0` forces WAV and wins over the file.
 
@@ -173,7 +165,7 @@ The checkpoint is English-trained. Spanish is experimental. The audible disclaim
 
 ## Piper
 
-Piper is the lightest engine and the fallback when Kokoro or VibeVoice is not ready. It does not need a GPU. Use `/gentle-voice tts piper` to return to it. That stops the Kokoro and VibeVoice workers.
+Piper is the engine that installs with the consented voice download. It does not need a GPU. Use `/gentle-voice tts piper` to return to it. That stops the VibeVoice worker.
 
 ## Barge-in
 

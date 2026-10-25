@@ -332,7 +332,7 @@ test("a clean home asks for an engine and downloads nothing when consent is refu
 		assert.deepEqual(titles, ["Choose your voice engine"]);
 		assert.equal(confirms.includes("Install speech recognition?"), true);
 		assert.ok(confirms.indexOf("Silero VAD") > confirms.indexOf("Install speech recognition?"));
-		const askedForEngine = confirms.some((title) => title.startsWith("Install VibeVoice") || title.startsWith("Finish VibeVoice") || title === "Install Piper?" || title === "Install Kokoro?");
+		const askedForEngine = confirms.some((title) => title.startsWith("Install VibeVoice") || title.startsWith("Finish VibeVoice") || title === "Install Piper?");
 		assert.equal(askedForEngine, linux64);
 		const names = existsSync(join(root, "share"))
 			? readdirSync(join(root, "share"), { recursive: true }).map(String)
@@ -342,7 +342,6 @@ test("a clean home asks for an engine and downloads nothing when consent is refu
 		if (!linux64) assert.equal(saved, "unset");
 		else if (picked.startsWith(ENGINE_VIBEVOICE)) assert.equal(saved, "vibevoice");
 		else if (picked.startsWith(ENGINE_PIPER)) assert.equal(saved, "piper");
-		// A refused Kokoro install leaves no preference behind.
 		else assert.equal(saved, "unset");
 	} finally {
 		rmSync(root, { recursive: true, force: true });

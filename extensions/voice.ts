@@ -137,9 +137,6 @@ import {
 	type VibeVoicePlaybackPreference,
 } from "../lib/adapters/vibevoice-pcm.ts";
 import { createNodeWslAudioIo, driveWslAudioBridge, planWslAudioBridge } from "../lib/adapters/wsl-audio.ts";
-import { isKokoroReady, resolveKokoroHome } from "../lib/kokoro/home.ts";
-import { formatKokoroConsent } from "../lib/kokoro/install.ts";
-import { driveKokoroInstall } from "../lib/kokoro/install-drive.ts";
 
 export { VOICE_STATUS_KEY, VOICE_WIDGET_KEY };
 
@@ -464,8 +461,6 @@ export function createVoiceExtension(pi: VoiceHostApi, options: VoiceExtensionOp
 
 	const rebindAdaptersFromRuntime = () => {
 		if (!useRealAudio) return;
-		const previousKokoro = resolved.kokoroAdapter as { dispose?: () => Promise<void> } | undefined;
-		void previousKokoro?.dispose?.();
 		resolved = resolveLabVoiceAdapters({
 			config: session.config,
 			forceStub: false,
@@ -1220,31 +1215,17 @@ export function createVoiceExtension(pi: VoiceHostApi, options: VoiceExtensionOp
 				}
 				if (eng === "kokoro") {
 					if (!resolved.kokoroAdapter) {
-						const targetDir = resolveKokoroHome();
-						const uiConfirm = (ctx.ui as unknown as { confirm?: (t: string, m: string) => Promise<boolean> }).confirm;
-						const consent = typeof uiConfirm === "function"
-							? await uiConfirm("Install Kokoro?", formatKokoroConsent(targetDir))
-							: undefined;
-						if (consent === undefined) {
-							ctx.ui.notify("Kokoro is not installed. Run /gentle-voice tts kokoro in an interactive session to install it.", "warning");
-							return;
-						}
-						if (!consent) {
-							ctx.ui.notify("Kokoro was not installed.", "info");
-							return;
-						}
-						await driveKokoroInstall(preparationHost(ctx), {
-							targetDir,
-							voiceHome: resolveVoiceHomeForTts(),
-							consent,
-						});
-						updateChrome(ctx, session);
+						ctx.ui.notify(
+							"Kokoro unavailable (lab OFF or not installed). Product default is Piper. Set GENTLE_VOICE_LAB=1 only in a dedicated lab.",
+							"warning",
+						);
 						return;
 					}
-					void (resolved.vibevoiceAdapter as { dispose?: () => Promise<void> } | undefined)?.dispose?.();
 					session.deps.tts = resolved.kokoroAdapter;
-					if (isKokoroReady()) writeTtsEnginePreference(resolveVoiceHomeForTts(), "kokoro");
-					ctx.ui.notify("TTS engine → kokoro. Voice ef_dora, CPU.", "info");
+					ctx.ui.notify(
+						"TTS engine → kokoro (session). Applies to agent spoken replies and test-speak. Default install remains Piper until you switch.",
+						"info",
+					);
 				} else if (eng === "vibevoice") {
 					if (!resolved.vibevoiceAdapter) {
 						ctx.ui.notify(
@@ -1254,7 +1235,6 @@ export function createVoiceExtension(pi: VoiceHostApi, options: VoiceExtensionOp
 						return;
 					}
 					writeTtsEnginePreference(resolveVoiceHomeForTts(), "vibevoice");
-					void (resolved.kokoroAdapter as { dispose?: () => Promise<void> } | undefined)?.dispose?.();
 					if (
 						resolveVibeVoiceOnColdStart() === "piper"
 						&& resolved.piperAdapter
@@ -1282,10 +1262,9 @@ export function createVoiceExtension(pi: VoiceHostApi, options: VoiceExtensionOp
 					}
 					const vv = resolved.vibevoiceAdapter as { dispose?: () => Promise<void> } | undefined;
 					void vv?.dispose?.();
-					void (resolved.kokoroAdapter as { dispose?: () => Promise<void> } | undefined)?.dispose?.();
 					session.deps.tts = resolved.piperAdapter;
 					writeTtsEnginePreference(resolveVoiceHomeForTts(), "piper");
-					ctx.ui.notify("TTS engine → piper. VibeVoice and Kokoro workers stopped.", "info");
+					ctx.ui.notify("TTS engine → piper. VibeVoice worker stopped (VRAM freed).", "info");
 				}
 				updateChrome(ctx, session);
 				return;
@@ -1867,7 +1846,6 @@ export function createVoiceExtension(pi: VoiceHostApi, options: VoiceExtensionOp
 			session.dispose();
 			const vv = resolved.vibevoiceAdapter as { dispose?: () => Promise<void> } | undefined;
 			void vv?.dispose?.();
-			void (resolved.kokoroAdapter as { dispose?: () => Promise<void> } | undefined)?.dispose?.();
 		});
 	}
 

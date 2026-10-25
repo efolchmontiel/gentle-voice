@@ -2,10 +2,9 @@
  * Which TTS engine the user chose.
  * The file lives in the Gentle Voice home. It does not change Gentle Shell profiles.
  *
- * unset — VibeVoice when that engine is ready, then Kokoro, otherwise Piper
- * piper — explicit; a ready VibeVoice or Kokoro install is not selected
+ * unset — VibeVoice when that engine is ready; otherwise Piper until the user chooses
+ * piper — explicit; a ready VibeVoice install is not selected
  * vibevoice — explicit; used only when that engine passes the probe
- * kokoro — explicit; used only when that engine passes the probe
  */
 
 import { mkdirSync, readFileSync, writeFileSync } from "node:fs";
@@ -13,7 +12,7 @@ import { dirname, join } from "node:path";
 import { resolveGentleVoiceStorage } from "../runtime/storage.ts";
 
 export const TTS_ENGINE_PREFERENCE_KIND = "gentle-voice.tts-engine" as const;
-export type TtsEnginePreference = "unset" | "piper" | "vibevoice" | "kokoro";
+export type TtsEnginePreference = "unset" | "piper" | "vibevoice";
 export type TtsEngineChoice = "piper" | "vibevoice" | "kokoro";
 
 export function ttsEnginePreferencePath(voiceHome: string): string {
@@ -33,7 +32,7 @@ export function readTtsEnginePreference(voiceHome: string): TtsEnginePreference 
 			engine?: unknown;
 		};
 		if (raw.kind !== TTS_ENGINE_PREFERENCE_KIND) return "unset";
-		if (raw.engine === "piper" || raw.engine === "vibevoice" || raw.engine === "kokoro") return raw.engine;
+		if (raw.engine === "piper" || raw.engine === "vibevoice") return raw.engine;
 		return "unset";
 	} catch {
 		return "unset";
@@ -61,14 +60,13 @@ export function resolvePreferredTts(env: NodeJS.ProcessEnv = process.env): TtsEn
 	const fromEnv = env.GENTLE_VOICE_TTS?.trim().toLowerCase();
 	if (fromEnv === "piper" || fromEnv === "vibevoice" || fromEnv === "kokoro") return fromEnv;
 	const stored = readTtsEnginePreference(resolveVoiceHomeForTts(env));
-	if (stored !== "unset") return stored;
+	if (stored === "piper" || stored === "vibevoice") return stored;
 	return undefined;
 }
 
 /**
- * Explicit Piper wins. Without a choice, a ready VibeVoice install comes
- * first, then Kokoro. An engine that is not ready falls back to Kokoro when
- * it is ready, otherwise Piper.
+ * Explicit Piper wins. A ready VibeVoice install is selected when the user
+ * has not chosen another engine. A missing install stays on Piper.
  */
 export function chooseTtsEngine(input: {
 	readonly preference: TtsEngineChoice | undefined;
@@ -76,11 +74,11 @@ export function chooseTtsEngine(input: {
 	readonly kokoroReady: boolean;
 }): TtsEngineChoice {
 	if (input.preference === "piper") return "piper";
-	if (input.preference === "kokoro" && input.kokoroReady) return "kokoro";
+	if (input.preference === "kokoro") return input.kokoroReady ? "kokoro" : "piper";
 	if (input.vibevoiceReady && (input.preference === "vibevoice" || input.preference === undefined)) {
 		return "vibevoice";
 	}
-	return input.kokoroReady ? "kokoro" : "piper";
+	return "piper";
 }
 
 export function readTtsRecommendationDeclined(voiceHome: string): boolean {
@@ -93,8 +91,7 @@ export function readTtsRecommendationDeclined(voiceHome: string): boolean {
 		return raw.kind === TTS_ENGINE_PREFERENCE_KIND
 			&& raw.recommendation === "declined"
 			&& raw.engine !== "piper"
-			&& raw.engine !== "vibevoice"
-			&& raw.engine !== "kokoro";
+			&& raw.engine !== "vibevoice";
 	} catch {
 		return false;
 	}
