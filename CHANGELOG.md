@@ -14,6 +14,7 @@ All notable changes to Gentle Voice are documented here.
 - With Kokoro installed, startup no longer asks to download Piper (about 134 MiB) on every launch, and the setup reports the voice engine as installed.
 - The Kokoro worker removes its temporary copy of `libespeak-ng` when it is stopped or its terminal closes. Before, every stop left a 662 KB folder in `/tmp`.
 - The Silero download size is shown in MiB, like the other downloads.
+- `auto` speech-to-text language transcribed everything as English, because `whisper-cli` defaults to English when `-l` is missing. It now passes `-l auto`.
 
 ### Added
 
@@ -24,10 +25,7 @@ All notable changes to Gentle Voice are documented here.
 ### Changed
 
 - Silero runs on sherpa-onnx instead of `onnxruntime-node`. The optional npm dependency installed 548 MB with the package, without asking. The pinned sherpa-onnx runtime is an 11.1 MB download (33.4 MB on disk on Linux x64), checked by size and sha512, and is installed together with the Silero model after one consent screen that explains what Silero does and lists both parts. When Gentle Shell already installed the same runtime, it is reused. A typical install (package, Whisper, Silero, and Kokoro) goes from about 1 GB to about 495 MB.
-
-### Fixed
-
-- `auto` speech-to-text language transcribed everything as English, because `whisper-cli` defaults to English when `-l` is missing. It now passes `-l auto`.
+- The VibeVoice install no longer pulls the upstream demo dependencies (Gradio, aiortc, FastAPI, librosa, and others). It installs only what the worker uses, runs pip without a cache, and deletes the source archive after installing. pip no longer keeps a second copy of PyTorch in `~/.cache/pip`, which saves about 3 GB. The measured tree is about 7.6 GiB.
 
 ## [0.2.0] — 2026-10-25
 

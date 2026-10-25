@@ -65,9 +65,26 @@ export const VIBEVOICE_PHASE_TEXT: Record<VibeVoiceInstallPhase, string> = {
 	verifying_install: "Verifying voice engine",
 };
 
+/**
+ * What the streaming worker imports. Upstream's dependency list also pulls the
+ * web demo (gradio, aiortc, av, fastapi, uvicorn) and librosa/numba/scipy,
+ * which the worker never loads. `accelerate` backs `device_map`.
+ */
+export const VIBEVOICE_RUNTIME_REQUIREMENTS: readonly string[] = Object.freeze([
+	"torch",
+	"transformers==4.51.3",
+	"diffusers",
+	"accelerate",
+	"numpy",
+	"tqdm",
+]);
+
+/** Pip writes no wheel cache, so PyTorch is not stored a second time under ~/.cache/pip. */
+export const VIBEVOICE_PIP_NO_CACHE = "--no-cache-dir";
+
 /** Reads package metadata. It does not import the model or touch the GPU. */
 export const VIBEVOICE_DEP_CHECK =
-	"import importlib.metadata as m, importlib.util as u; raise SystemExit(0 if m.version('vibevoice') and u.find_spec('torch') else 4)";
+	"import importlib.metadata as m, importlib.util as u; raise SystemExit(0 if m.version('vibevoice') and all(u.find_spec(n) for n in ('torch', 'transformers', 'diffusers', 'accelerate')) else 4)";
 
 export interface VibeVoiceInstallProgress {
 	readonly phase: VibeVoiceInstallPhase;
@@ -359,12 +376,17 @@ export async function runVibeVoiceOnboarding(input: {
 		const depArgs = ["-c", VIBEVOICE_DEP_CHECK];
 		let dependencies = await io.run(python, depArgs, signal);
 		if (dependencies.code !== 0) {
-			const pipArgs = ["install", "-e", `${join(input.targetDir, "code")}[streamingtts]`];
-			assertNoPrivilege(pip, pipArgs);
-			const installed = await io.run(pip, pipArgs, signal);
-			if (signal.aborted) throw new Error("cancelled");
-			if (installed.code !== 0) {
-				throw Object.assign(new Error("pip_failed"), { detail: installed.detail });
+			const pipSteps: readonly (readonly string[])[] = [
+				["install", VIBEVOICE_PIP_NO_CACHE, "--no-deps", "-e", join(input.targetDir, "code")],
+				["install", VIBEVOICE_PIP_NO_CACHE, ...VIBEVOICE_RUNTIME_REQUIREMENTS],
+			];
+			for (const pipArgs of pipSteps) {
+				assertNoPrivilege(pip, pipArgs);
+				const installed = await io.run(pip, pipArgs, signal);
+				if (signal.aborted) throw new Error("cancelled");
+				if (installed.code !== 0) {
+					throw Object.assign(new Error("pip_failed"), { detail: installed.detail });
+				}
 			}
 			dependencies = await io.run(python, depArgs, signal);
 			if (dependencies.code !== 0) {
@@ -417,6 +439,8 @@ export async function runVibeVoiceOnboarding(input: {
 			`${JSON.stringify({ authorized: true, status: "installed" }, null, 2)}\n`,
 			{ mode: 0o600 },
 		);
+		// Every member is extracted and verified; the source archive is no longer needed.
+		await rm(join(input.targetDir, ".download-cache"), { recursive: true, force: true });
 		writeTtsEnginePreference(input.voiceHome, "vibevoice");
 		return {
 			...base,

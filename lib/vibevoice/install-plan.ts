@@ -36,10 +36,10 @@ export const VIBEVOICE_MIN_VRAM_MB = 4096;
 /** The tested card. Crossing 4 GB does not mean that card was tested. */
 export const VIBEVOICE_RECOMMENDED_VRAM_MB = 8192;
 /**
- * The one measured engine tree was 8611023085 bytes, about 8.2 GiB,
- * before temporary download files. 8 GiB free cannot hold it.
+ * The measured engine tree with worker-only dependencies is 8211300352 bytes,
+ * about 7.6 GiB. pip needs temporary space on top of it while installing.
  */
-export const VIBEVOICE_MEASURED_TREE_BYTES = 8_611_023_085;
+export const VIBEVOICE_MEASURED_TREE_BYTES = 8_211_300_352;
 export const VIBEVOICE_MIN_FREE_DISK_MB = 12_288;
 export const VIBEVOICE_RECOMMENDED_FREE_DISK_MB = 16_384;
 export const VIBEVOICE_TESTED_HOST =

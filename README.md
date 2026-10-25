@@ -186,7 +186,7 @@ On a compatible machine, `/gentle-voice vibevoice-setup` asks with a short confi
 
 The engine directory is `$XDG_DATA_HOME/gentle-voice/vibevoice`, or `~/.local/share/gentle-voice/vibevoice` when `XDG_DATA_HOME` is unset. `GENTLE_VOICE_HOME` and `GENTLE_VOICE_VIBEVOICE_HOME` are optional overrides. If the resolved directory is on tmpfs, including `/tmp`, Pi asks before using it and offers the persistent directory. The variables themselves are not changed. `GENTLE_VOICE_VIBEVOICE_ALLOW_TMPFS=1` is only for a throwaway test.
 
-The floor is an NVIDIA GPU, 4 GB of VRAM, and 12 GiB free. The one measured tree was about 8.6 GiB, so 8 GiB free is not enough. 8 GB of VRAM is the recommended and tested class: one Linux x64 machine with an RTX 2070. A card above 4 GB is not automatically supported. Windows, macOS, CPU, and other GPUs are not supported by a run we can cite.
+The floor is an NVIDIA GPU, 4 GB of VRAM, and 12 GiB free. The measured tree is about 7.6 GiB, almost all of it PyTorch with its CUDA libraries, and pip needs temporary space on top while installing. 8 GB of VRAM is the recommended and tested class: one Linux x64 machine with an RTX 2070. A card above 4 GB is not automatically supported. Windows, macOS, CPU, and other GPUs are not supported by a run we can cite.
 
 The code commit is `16fb2cb1217c9934a886e1948ffb06120caa2df5` from `https://github.com/microsoft/VibeVoice` (MIT). The weights are `model.safetensors`, 2035332888 bytes, sha256 `7758b150b8139deb48ac1ff6f181f745c8fedd5511232fd974b3eb217d83b514`, from `https://huggingface.co/microsoft/VibeVoice-Realtime-0.5B`. The voice file is `sp-Spk0_woman.pt` from the upstream experimental Spanish archive. Those hashes are checked before `INSTALL_PENDING.json` is written. The npm package does not contain the weights. The Python environment is `<engine>/.venv`. The wizard does not use sudo and does not change system Python, CUDA, or drivers.
 
@@ -247,7 +247,7 @@ Measured on Linux x64. Only the package comes with `pi install`; everything else
 | sherpa-onnx runtime | Runs Silero. Reused from Gentle Shell when present | 33.4 MB (11.1 MB download) |
 | Kokoro (model files 191.7 MB + Python environment 177.1 MB) | Recommended voice, CPU | 368.9 MB |
 | Piper (binary 52.6 MB + Daniela voice 114.2 MB) | Light fallback voice | 166.8 MB |
-| VibeVoice | Optional GPU voice | about 8.6 GB (measured lab tree) |
+| VibeVoice | Optional GPU voice | 8.2 GB (about 7.6 GiB) |
 
 A typical install (package, Whisper, Silero, and Kokoro) takes about 495 MB, or about 461 MB when Gentle Shell's runtime is reused. Up to 0.2.0, Silero ran on `onnxruntime-node`, an optional npm dependency that installed 548 MB (CUDA and every platform) with the package, without asking. That same install took about 1 GB.
 
