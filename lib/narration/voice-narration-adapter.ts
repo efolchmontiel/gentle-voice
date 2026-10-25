@@ -336,7 +336,7 @@ export function createVoiceNarrationAdapter(
 						{
 							systemPrompt: NARRATION_SYSTEM_PROMPT,
 							messages: [
-								{ role: "user", content: buildNarrationUserMessage(clipped) },
+								{ role: "user", content: buildNarrationUserMessage(clipped, input.language) },
 							],
 						},
 						{

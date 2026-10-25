@@ -12,7 +12,13 @@ import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { createInterface } from "node:readline";
 import type { AdapterAvailability, TtsAdapter, TtsResult } from "../contracts.ts";
-import { KOKORO_ARTIFACTS, KOKORO_DEFAULT_VOICE, KOKORO_LANG } from "../kokoro/manifest.ts";
+import {
+	KOKORO_ARTIFACTS,
+	KOKORO_DEFAULT_VOICE,
+	KOKORO_ENGLISH_LANG,
+	KOKORO_ENGLISH_VOICE,
+	KOKORO_LANG,
+} from "../kokoro/manifest.ts";
 import { kokoroVenvPython, kokoroWorkerScript, probeKokoroReadiness, resolveKokoroHome } from "../kokoro/home.ts";
 import { AbortError, onAbort, throwIfAborted } from "../process-cancel.ts";
 import { isWavBuffer } from "./wav.ts";
@@ -25,6 +31,7 @@ export interface KokoroWorkerTtsOptions {
 	readonly python?: string;
 	readonly script?: string;
 	readonly voice?: string;
+	readonly englishVoice?: string;
 	readonly tmpDir?: string;
 	readonly startupTimeoutMs?: number;
 	readonly requestTimeoutMs?: number;
@@ -53,6 +60,7 @@ export function createKokoroWorkerTtsAdapter(options: KokoroWorkerTtsOptions = {
 	const python = options.python ?? kokoroVenvPython(home);
 	const script = options.script ?? kokoroWorkerScript();
 	const voice = options.voice ?? KOKORO_DEFAULT_VOICE;
+	const englishVoice = options.englishVoice ?? KOKORO_ENGLISH_VOICE;
 	const tmpDir = options.tmpDir ?? join(tmpdir(), "gentle-voice");
 	const startupTimeoutMs = options.startupTimeoutMs ?? 60_000;
 	const requestTimeoutMs = options.requestTimeoutMs ?? 120_000;
@@ -155,7 +163,7 @@ export function createKokoroWorkerTtsAdapter(options: KokoroWorkerTtsOptions = {
 		async prewarm(): Promise<void> {
 			await start();
 		},
-		async synthesize(text, { signal }): Promise<TtsResult> {
+		async synthesize(text, { signal, language }): Promise<TtsResult> {
 			throwIfAborted(signal);
 			const trimmed = text.trim();
 			if (!trimmed) return emptyResult();
@@ -193,7 +201,10 @@ export function createKokoroWorkerTtsAdapter(options: KokoroWorkerTtsOptions = {
 					finish();
 					rejectReply(new AbortError());
 				});
-				proc.stdin.write(`${JSON.stringify({ id, text: trimmed, voice, out })}\n`);
+				const request = language === "en"
+					? { id, text: trimmed, voice: englishVoice, lang: KOKORO_ENGLISH_LANG, out }
+					: { id, text: trimmed, voice, lang: KOKORO_LANG, out };
+				proc.stdin.write(`${JSON.stringify(request)}\n`);
 			});
 			try {
 				const buf = await readFile(out);

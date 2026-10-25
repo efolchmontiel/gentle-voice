@@ -63,6 +63,12 @@ import {
 	resolveVoiceHomeForTts,
 	writeTtsEnginePreference,
 } from "../lib/vibevoice/tts-preference.ts";
+import {
+	describeVoiceLanguage,
+	parseVoiceLanguageMode,
+	resolveVoiceLanguageMode,
+	writeVoiceLanguageMode,
+} from "../lib/language/voice-language.ts";
 import { LAB_TEST_SPEAK_PHRASE } from "../lib/adapters/piper-tts.ts";
 import { VoiceSession } from "../lib/voice-session.ts";
 import {
@@ -373,7 +379,7 @@ function voiceAiRuntimeFromConfig(config: VoiceConfig): VoiceAiRuntimeConfig {
 export function createVoiceExtension(pi: VoiceHostApi, options: VoiceExtensionOptions = {}): VoiceSession {
 	const config = applyVoiceAiEnvOverrides(options.config ?? {
 		...DEFAULT_VOICE_CONFIG,
-		engines: { ...DEFAULT_VOICE_CONFIG.engines, language: "es" },
+		engines: { ...DEFAULT_VOICE_CONFIG.engines, language: resolveVoiceLanguageMode(resolveVoiceHomeForTts()) },
 		behavior: { ...DEFAULT_VOICE_CONFIG.behavior, autoSubmitTranscript: false },
 		voiceAi: { ...DEFAULT_VOICE_CONFIG.voiceAi },
 	});
@@ -1211,6 +1217,29 @@ export function createVoiceExtension(pi: VoiceHostApi, options: VoiceExtensionOp
 				return;
 			}
 
+			if (parsed.command === "lang") {
+				const usage = "Usage: /gentle-voice lang auto|es|en";
+				const arg = parsed.rest.trim();
+				if (!arg) {
+					ctx.ui.notify(`Language: ${describeVoiceLanguage(session.languageMode, session.spokenLanguage)}\n${usage}`, "info");
+					return;
+				}
+				const mode = parseVoiceLanguageMode(arg);
+				if (!mode) {
+					ctx.ui.notify(usage, "warning");
+					return;
+				}
+				writeVoiceLanguageMode(resolveVoiceHomeForTts(), mode);
+				session.setLanguageMode(mode);
+				const lines = [`Language → ${describeVoiceLanguage(mode, session.spokenLanguage)}.`];
+				if (mode !== "es" && session.deps.tts.id === "piper-tts") {
+					lines.push("Piper only has a Spanish voice, so English replies are read with it. Kokoro speaks both: /gentle-voice tts kokoro");
+				}
+				ctx.ui.notify(lines.join("\n"), "info");
+				updateChrome(ctx, session);
+				return;
+			}
+
 			if (parsed.command === "tts") {
 				const eng = parsed.rest.trim().toLowerCase();
 				if (eng !== "piper" && eng !== "kokoro" && eng !== "vibevoice") {
@@ -1639,6 +1668,7 @@ export function createVoiceExtension(pi: VoiceHostApi, options: VoiceExtensionOp
 						`engines.stt=${probe.stt}`,
 						`engines.tts=${probe.tts}`,
 						`engines.playback=${probe.playback}`,
+						`language=${describeVoiceLanguage(session.languageMode, session.spokenLanguage)}`,
 						`conversationCapable=${conversationCapable}`,
 						...describeConversationReadiness({
 							tts: probe.tts,
@@ -1778,7 +1808,7 @@ export function createVoiceExtension(pi: VoiceHostApi, options: VoiceExtensionOp
 			const enabled = readConverseStyleState(voiceHome).enabled;
 			const opts = (event as { systemPromptOptions?: { appendSystemPrompt?: string } | null })
 				?.systemPromptOptions;
-			injectConverseStyleIfEnabled(opts ?? undefined, enabled);
+			injectConverseStyleIfEnabled(opts ?? undefined, enabled, resolveVoiceLanguageMode(resolveVoiceHomeForTts()));
 		});
 		// First-run on host session start — no mandatory /gentle-voice setup.
 		pi.on("session_start", (_event, ctx) => {

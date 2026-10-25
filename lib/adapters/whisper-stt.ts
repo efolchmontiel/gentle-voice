@@ -132,8 +132,11 @@ export function createWhisperSttAdapter(options: WhisperSttAdapterOptions): Whis
 			"-m", options.modelPath,
 			"-f", wavPath,
 			"-nt",
-			"-np",
 		];
+		// -np also silences "auto-detected language: xx", which auto mode reads from stderr.
+		if (lang !== "auto") {
+			args.push("-np");
+		}
 		// Lab measure: greedy -bs 1 -t 2 was *slower* than default beam on ggml-small CPU.
 		// Partials use the same decode quality; win is overlapping speech, not a weaker model.
 		const threads = profile === "partial"
@@ -145,7 +148,8 @@ export function createWhisperSttAdapter(options: WhisperSttAdapterOptions): Whis
 		if (profile === "partial") {
 			args.push("-sns");
 		}
-		if (lang && lang !== "auto") {
+		// whisper-cli defaults to English when -l is absent, so auto must be explicit.
+		if (lang) {
 			args.push("-l", lang);
 		}
 		const prompt = options.initialPrompt?.trim();
@@ -247,14 +251,14 @@ export function createWhisperSttAdapter(options: WhisperSttAdapterOptions): Whis
 		await mkdir(tmpDir, { recursive: true });
 		const wavPath = join(tmpDir, `stt-${profile}-${randomUUID()}.wav`);
 		await writeFile(wavPath, wavBytes);
-		const plan = buildPlan(wavPath, language, profile);
-		lastPlan = plan;
-
+		const requested = language ?? options.language ?? "es";
 		const started = performance.now();
 		const timeoutMs = profile === "partial"
 			? (options.partialTimeoutMs ?? 45_000)
 			: (options.timeoutMs ?? 180_000);
-		try {
+		const decode = async (lang: string) => {
+			const plan = buildPlan(wavPath, lang, profile);
+			lastPlan = plan;
 			const result = await runCaptured(plan.command, plan.args, {
 				signal,
 				timeoutMs,
@@ -263,21 +267,32 @@ export function createWhisperSttAdapter(options: WhisperSttAdapterOptions): Whis
 				},
 			});
 			throwIfAborted(signal);
-			const elapsed = Math.round(performance.now() - started);
-			lastMetrics = {
-				loadAndTranscribeMs: elapsed,
-				inputBytes: audio.bytes.byteLength,
-				tempWavBytes: wavBytes.byteLength,
-			};
 			if (result.code !== 0) {
 				throw new Error(
 					`whisper-cli exited ${result.code}: ${result.stderr.toString("utf8").slice(0, 400)}`,
 				);
 			}
-			const text = parseWhisperStdout(result.stdout.toString("utf8"));
+			return {
+				text: parseWhisperStdout(result.stdout.toString("utf8")),
+				detected: parseWhisperDetectedLanguage(result.stderr.toString("utf8")),
+			};
+		};
+		try {
+			let { text, detected } = await decode(requested);
+			let resolved = requested === "auto" ? detected : requested;
+			// Auto only covers Spanish and English; a short turn misread as another language is redone in Spanish.
+			if (requested === "auto" && detected && detected !== "es" && detected !== "en" && profile === "final") {
+				({ text } = await decode("es"));
+				resolved = "es";
+			}
+			lastMetrics = {
+				loadAndTranscribeMs: Math.round(performance.now() - started),
+				inputBytes: audio.bytes.byteLength,
+				tempWavBytes: wavBytes.byteLength,
+			};
 			return {
 				text,
-				language: language ?? options.language ?? "es",
+				...(resolved && resolved !== "auto" ? { language: resolved } : {}),
 				confidence: text ? (profile === "partial" ? 0.5 : 1) : 0,
 			};
 		} finally {
@@ -288,6 +303,11 @@ export function createWhisperSttAdapter(options: WhisperSttAdapterOptions): Whis
 	}
 
 	return adapter;
+}
+
+/** Reads "auto-detected language: es (p = 0.84)" from whisper-cli stderr. */
+export function parseWhisperDetectedLanguage(stderr: string): string | undefined {
+	return /auto-detected language:\s*([a-z]{2,3})\b/i.exec(stderr)?.[1]?.toLowerCase();
 }
 
 /**

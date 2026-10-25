@@ -64,6 +64,14 @@ import {
 import { pcmS16leToWav } from "./adapters/wav.ts";
 import { VisualMeter } from "./visual/visual-meter.ts";
 import type { VoiceChromeVisual } from "./widget-chrome.ts";
+import {
+	parseVoiceLanguageMode,
+	spokenLanguageFor,
+	sttLanguageFor,
+	toSpokenLanguage,
+	type SpokenLanguage,
+	type VoiceLanguageMode,
+} from "./language/voice-language.ts";
 
 /** P0 listen-cycle diagnostics (lab / tests). */
 export interface ListenCycleDiag {
@@ -155,6 +163,7 @@ export class VoiceSession {
 	#lastCorrection: SttCorrectionResult | undefined;
 	/** Bumped to invalidate in-flight TTS when a newer speak/cancel wins. */
 	#speakEpoch = 0;
+	#turnLanguage: SpokenLanguage | undefined;
 	/** Esc during WORKING: drop the later narration without aborting the agent. */
 	#suppressSettleSpeak = false;
 	#pcmTail: Promise<void> = Promise.resolve();
@@ -258,6 +267,33 @@ export class VoiceSession {
 
 	get state(): VoiceMachineState {
 		return this.#state;
+	}
+
+	get languageMode(): VoiceLanguageMode {
+		return parseVoiceLanguageMode(this.#config.engines.language) ?? "es";
+	}
+
+	/** Language the next reply is spoken in. */
+	get spokenLanguage(): SpokenLanguage {
+		return this.#spokenLanguage();
+	}
+
+	setLanguageMode(mode: VoiceLanguageMode): void {
+		this.#config = { ...this.#config, engines: { ...this.#config.engines, language: mode } };
+		if (mode !== "auto") this.#turnLanguage = undefined;
+	}
+
+	#sttLanguage(): string {
+		return sttLanguageFor(this.languageMode);
+	}
+
+	#spokenLanguage(): SpokenLanguage {
+		return spokenLanguageFor(this.languageMode, this.#turnLanguage);
+	}
+
+	#noteTurnLanguage(code: string | undefined): void {
+		const lang = toSpokenLanguage(code);
+		if (lang && this.languageMode === "auto") this.#turnLanguage = lang;
 	}
 
 	get config(): VoiceConfig {
@@ -551,7 +587,7 @@ export class VoiceSession {
 		this.#speakEpoch += 1;
 		this.#bag.abortAll();
 		this.#pendingSpeakText = renderForSpeech(trimmed, {
-			language: this.#config.engines.language === "auto" ? "es" : this.#config.engines.language,
+			language: this.#spokenLanguage(),
 			mode: this.#config.behavior.speechMode,
 			cwd: process.cwd(),
 		}).spoken;
@@ -576,11 +612,11 @@ export class VoiceSession {
 		this.#noticeAbort = ac;
 		try {
 			const spoken = renderForSpeech(trimmed, {
-				language: this.#config.engines.language === "auto" ? "es" : this.#config.engines.language,
+				language: this.#spokenLanguage(),
 				mode: this.#config.behavior.speechMode,
 				cwd: process.cwd(),
 			}).spoken || trimmed;
-			const { audio } = await this.deps.tts.synthesize(spoken, { signal: ac.signal });
+			const { audio } = await this.deps.tts.synthesize(spoken, { signal: ac.signal, language: this.#spokenLanguage() });
 			if (ac.signal.aborted) return;
 			const handle = await this.deps.playback.play(audio, { signal: ac.signal });
 			await handle.done;
@@ -991,7 +1027,7 @@ export class VoiceSession {
 	#armStreamAssembler(turnId: number): void {
 		this.#streamErrorReported = false;
 		this.#streamAssembler = new SentenceAssembler({
-			language: this.#config.engines.language === "auto" ? "es" : this.#config.engines.language,
+			language: this.#spokenLanguage(),
 			// 2D.5 Strategy B: group short sentences for less choppy prosody.
 			minSentencesPerUnit: 2,
 			minCharsPerUnit: 140,
@@ -1060,7 +1096,7 @@ export class VoiceSession {
 		const adapter = this.deps.narrationAdapter;
 		if (!adapter) {
 			this.#pendingSpeakText = renderForSpeech(source, {
-				language: this.#config.engines.language === "auto" ? "es" : this.#config.engines.language,
+				language: this.#spokenLanguage(),
 				mode: this.#config.behavior.speechMode,
 				cwd: process.cwd(),
 			}).spoken;
@@ -1081,6 +1117,7 @@ export class VoiceSession {
 			result = await adapter.narrate({
 				text: source,
 				signal,
+				language: this.#spokenLanguage(),
 				timeoutMs: this.#config.voiceAi.timeoutMs,
 				maxInputChars: this.#config.voiceAi.maxInputChars,
 				style: this.#config.voiceAi.style,
@@ -1143,7 +1180,7 @@ export class VoiceSession {
 		);
 
 		const rendered = renderForSpeech(narrated, {
-			language: this.#config.engines.language === "auto" ? "es" : this.#config.engines.language,
+			language: this.#spokenLanguage(),
 			mode: this.#config.behavior.speechMode,
 			cwd: process.cwd(),
 		}).spoken || narrated;
@@ -1258,7 +1295,7 @@ export class VoiceSession {
 		const engineId = this.deps.tts.id ?? "";
 		const vibevoice = engineId.includes("vibevoice");
 		if (!vibevoice || !nativeVibeVoiceStreamEnabled(process.env)) {
-			const { audio } = await this.deps.tts.synthesize(speakable, { signal });
+			const { audio } = await this.deps.tts.synthesize(speakable, { signal, language: this.#spokenLanguage() });
 			return audio;
 		}
 		const player = openPipewirePcmStream({
@@ -1279,6 +1316,7 @@ export class VoiceSession {
 		try {
 			await this.deps.tts.synthesize(speakable, {
 				signal,
+				language: this.#spokenLanguage(),
 				onPcm: async (frame) => {
 					await waitPrev;
 					if (!stillCurrent()) return;
@@ -1310,7 +1348,7 @@ export class VoiceSession {
 			);
 			let audio: AudioChunk;
 			try {
-				({ audio } = await this.deps.tts.synthesize(speakable, { signal }));
+				({ audio } = await this.deps.tts.synthesize(speakable, { signal, language: this.#spokenLanguage() }));
 			} catch (wavError) {
 				const wavDetail = wavError instanceof Error ? wavError.message : String(wavError);
 				this.#lastTtsFallbackReason = `pcm_and_wav_failed:${detail.slice(0, 80)} | ${wavDetail.slice(0, 80)}`;
@@ -1333,7 +1371,7 @@ export class VoiceSession {
 				"VibeVoice returned no PCM. Playing this sentence once as WAV.",
 				"warning",
 			);
-			const { audio } = await this.deps.tts.synthesize(speakable, { signal });
+			const { audio } = await this.deps.tts.synthesize(speakable, { signal, language: this.#spokenLanguage() });
 			return audio;
 		}
 		this.#pcmTail = player.done;
@@ -1576,7 +1614,7 @@ export class VoiceSession {
 					id: "reconcile",
 					raw: remainder,
 					speakable: renderForSpeech(remainder, {
-						language: this.#config.engines.language === "auto" ? "es" : this.#config.engines.language,
+						language: this.#spokenLanguage(),
 						mode: this.#config.behavior.speechMode,
 						cwd: process.cwd(),
 					}).spoken || remainder,
@@ -1639,7 +1677,7 @@ export class VoiceSession {
 			: utterance.text;
 		this.#pendingSpeakText = maySpeak
 			? renderForSpeech(fallbackSource, {
-				language: this.#config.engines.language === "auto" ? "es" : this.#config.engines.language,
+				language: this.#spokenLanguage(),
 				mode: this.#config.behavior.speechMode,
 				cwd: process.cwd(),
 			}).spoken
@@ -1713,8 +1751,7 @@ export class VoiceSession {
 					: 0;
 
 				if (this.#incrementalWanted()) {
-					const lang =
-						this.#config.engines.language === "auto" ? "es" : this.#config.engines.language;
+					const lang = this.#sttLanguage();
 					this.#incremental = createIncrementalSttController({
 						stt: this.deps.stt,
 						language: lang,
@@ -1979,8 +2016,7 @@ export class VoiceSession {
 	}
 
 	async #transcribe(audio: AudioChunk, signal: AbortSignal): Promise<void> {
-		const language =
-			this.#config.engines.language === "auto" ? "es" : this.#config.engines.language;
+		const language = this.#sttLanguage();
 		const transcriptionId = randomUUID();
 		const meta = audio.captureMeta;
 		const prompt =
@@ -2060,6 +2096,7 @@ export class VoiceSession {
 			whisperMs: whisperEnd - whisperStart,
 		};
 		const raw = result.text.trim();
+		if (raw) this.#noteTurnLanguage(result.language);
 		if (!raw) {
 			this.#clearProvisional();
 			this.#lastLabDiag =

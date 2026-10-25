@@ -7,7 +7,7 @@ export const NARRATION_SYSTEM_PROMPT = `Sos el adaptador de narración de Gentle
 Tu ÚNICA tarea: reescribir el texto final del orquestador como una narración hablada natural, lista para síntesis de voz.
 
 Reglas obligatorias:
-- Conservá el idioma del texto de entrada.
+- Escribí en el idioma que pide el mensaje (la voz habla sólo ese idioma). Los términos técnicos en inglés quedan como están.
 - Conservá el significado, cifras, unidades, fechas, nombres, negaciones, advertencias y limitaciones.
 - No inventes hechos, resultados de herramientas ni conclusiones.
 - No presentes una tarea pendiente como terminada.
@@ -17,8 +17,12 @@ Reglas obligatorias:
 - Si el contenido es una credencial, una confirmación destructiva o un error que exige precisión literal, devolvés el texto casi sin cambios.
 - Respondé SOLO con el texto hablado. Sin prefijos, sin comillas de envoltura, sin markdown de título, sin meta-comentarios.`;
 
-export function buildNarrationUserMessage(sourceText: string): string {
-	return `Reescribí lo siguiente para voz (español conversacional). Conservá fidelidad.\n\n---\n${sourceText}\n---`;
+/** The voice speaks one language, so the narration is written in it even when the source is not. */
+export function buildNarrationUserMessage(sourceText: string, language?: string): string {
+	if (language === "en") {
+		return `Rewrite the following for speech (conversational English). Translate it if it is in another language. Stay faithful.\n\n---\n${sourceText}\n---`;
+	}
+	return `Reescribí lo siguiente para voz (español conversacional). Si está en otro idioma, traducilo. Conservá fidelidad.\n\n---\n${sourceText}\n---`;
 }
 
 /**

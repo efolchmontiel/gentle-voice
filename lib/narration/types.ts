@@ -76,6 +76,8 @@ export interface NarrationUsage {
 export interface NarrateInput {
 	readonly text: string;
 	readonly signal?: AbortSignal;
+	/** Language the narration is spoken in ("es" or "en"); Spanish when absent. */
+	readonly language?: string;
 	/** Wall-clock timeout (ms). */
 	readonly timeoutMs?: number;
 	readonly maxInputChars?: number;
