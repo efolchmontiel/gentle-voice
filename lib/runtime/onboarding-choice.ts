@@ -18,21 +18,11 @@ export const USE_PERSISTENT_LOCATION_PREFIX = "Use ";
 export const KEEP_TEMPORARY_LOCATION = "Keep this temporary location";
 export const ENGINE_VIBEVOICE = "VibeVoice";
 export const ENGINE_PIPER = "Piper";
-export const ENGINE_KOKORO = "Kokoro";
 export const ENGINE_SKIP = "Skip";
 export const SKIP_TTS = ENGINE_SKIP;
 export const RECOMMENDED_FOR_SYSTEM = "(Recommended for your system)";
 export const NOT_SUPPORTED_LABEL = "(Not supported)";
 export const COMPATIBILITY_UNKNOWN_LABEL = "(Compatibility unknown)";
-export const GPU_PREMIUM_LABEL = "(NVIDIA GPU, larger download)";
-
-export type EngineChoice = "kokoro" | "vibevoice" | "piper" | "skip";
-
-/** Kokoro needs Linux x64 or similar plus Python 3.11-3.14 for its private environment. */
-export interface KokoroOption {
-	readonly runnable: boolean;
-	readonly installed: boolean;
-}
 
 export function envPreferringPersistentHome(
 	env: NodeJS.ProcessEnv,
@@ -137,31 +127,11 @@ export function engineOptionLabel(name: string, tag?: string): string {
 	return tag ? `${name}  ${tag}` : name;
 }
 
-/**
- * Pi highlights row 0 and has no initial index, so the recommended engine is first.
- * A runnable Kokoro is recommended; VibeVoice stays the opt-in GPU engine.
- */
+/** Pi highlights row 0 and has no initial index, so the recommended engine is first. */
 export function voiceEngineOptions(
 	compatibility: VibeVoiceCompatibility,
 	piperRunnable: boolean,
-	kokoro?: KokoroOption,
-): { readonly recommended: EngineChoice; readonly options: readonly string[] } {
-	if (kokoro?.runnable) {
-		const premiumTag = compatibility === "supported"
-			? GPU_PREMIUM_LABEL
-			: compatibility === "unsupported"
-				? NOT_SUPPORTED_LABEL
-				: COMPATIBILITY_UNKNOWN_LABEL;
-		return {
-			recommended: "kokoro",
-			options: [
-				engineOptionLabel(ENGINE_KOKORO, RECOMMENDED_FOR_SYSTEM),
-				engineOptionLabel(ENGINE_VIBEVOICE, premiumTag),
-				ENGINE_PIPER,
-				ENGINE_SKIP,
-			],
-		};
-	}
+): { readonly recommended: "vibevoice" | "piper" | "skip"; readonly options: readonly string[] } {
 	const vibeTag = compatibility === "supported"
 		? RECOMMENDED_FOR_SYSTEM
 		: compatibility === "unsupported"
@@ -185,9 +155,8 @@ export function voiceEngineOptions(
 	};
 }
 
-export function parseEngineChoice(value: string | undefined): EngineChoice | undefined {
+export function parseEngineChoice(value: string | undefined): "vibevoice" | "piper" | "skip" | undefined {
 	if (!value) return undefined;
-	if (value.startsWith(ENGINE_KOKORO)) return "kokoro";
 	if (value === ENGINE_SKIP || value.startsWith(`${ENGINE_SKIP} `)) return "skip";
 	if (value.startsWith(ENGINE_VIBEVOICE)) return "vibevoice";
 	if (value.startsWith(ENGINE_PIPER)) return "piper";
@@ -197,11 +166,11 @@ export function parseEngineChoice(value: string | undefined): EngineChoice | und
 export type EngineFollowUp =
 	| { readonly kind: "skip" }
 	| { readonly kind: "blocked"; readonly message: string }
-	| { readonly kind: "activate"; readonly engine: Exclude<EngineChoice, "skip">; readonly notice: string }
-	| { readonly kind: "confirm"; readonly engine: Exclude<EngineChoice, "skip">; readonly title: string; readonly message: string };
+	| { readonly kind: "activate"; readonly engine: "vibevoice" | "piper"; readonly notice: string }
+	| { readonly kind: "confirm"; readonly engine: "vibevoice" | "piper"; readonly title: string; readonly message: string };
 
 export function followEngineSelection(input: {
-	readonly choice: EngineChoice | undefined;
+	readonly choice: "vibevoice" | "piper" | "skip" | undefined;
 	readonly compatibility: VibeVoiceCompatibility;
 	readonly compatibilityReasons: readonly string[];
 	readonly installBlocked: boolean;
@@ -211,13 +180,8 @@ export function followEngineSelection(input: {
 	readonly location: string;
 	readonly consentBody: string;
 	readonly damageDetail?: string;
-	readonly kokoroInstalled?: boolean;
 }): EngineFollowUp {
 	if (input.choice === undefined || input.choice === "skip") return { kind: "skip" };
-	if (input.choice === "kokoro") {
-		if (input.kokoroInstalled) return { kind: "activate", engine: "kokoro", notice: "Kokoro: Installed." };
-		return { kind: "confirm", engine: "kokoro", title: "Install Kokoro?", message: input.consentBody };
-	}
 	if (input.choice === "piper") {
 		if (input.piperPresent) return { kind: "activate", engine: "piper", notice: "Piper: Installed." };
 		return {
@@ -269,7 +233,7 @@ export function followEngineSelection(input: {
 
 export interface TtsRecommendation {
 	readonly action: "ask" | "keep" | "ready" | "repair" | "inform";
-	readonly recommended: EngineChoice;
+	readonly recommended: "vibevoice" | "piper" | "skip";
 	readonly title: string;
 	readonly message: string;
 	readonly options: readonly string[];
@@ -290,19 +254,8 @@ export function recommendTts(input: {
 	readonly location: string;
 	readonly consentBody: string;
 	readonly damageDetail?: string;
-	readonly kokoro?: KokoroOption;
 }): TtsRecommendation {
-	const choice = voiceEngineOptions(input.compatibility, input.piperRunnable, input.kokoro);
-	if (input.preference === "kokoro" && input.kokoro?.installed) {
-		return {
-			action: "keep",
-			recommended: "kokoro",
-			title: "Voice engine",
-			message: "Kokoro stays your voice engine.",
-			options: [],
-			offerSwitch: false,
-		};
-	}
+	const choice = voiceEngineOptions(input.compatibility, input.piperRunnable);
 	if (input.preference === "piper") {
 		return {
 			action: "keep",
