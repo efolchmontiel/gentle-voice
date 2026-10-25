@@ -11,6 +11,13 @@ import { formatBytes } from "../runtime/artifacts.ts";
 import { resolveGentleVoiceStorage } from "../runtime/storage.ts";
 import { createCompactVoiceLeaf, type CompactWidgetLeaf, type VoiceThemeLike } from "../visual/compact-widget.ts";
 import { tryCreateSileroVad } from "./silero-vad.ts";
+import {
+	installSherpaRuntime,
+	resolveSherpaRuntime,
+	sherpaDownloadBytes,
+	sherpaInstalledBytes,
+	sherpaTarget,
+} from "./sherpa-runtime.ts";
 
 /** Immutable upstream file. Size is the GitHub blob size of this commit. */
 export const SILERO_VAD_COMMIT = "1e261b036686cd0017d500ee96acd1c4ba572a9d";
@@ -22,7 +29,7 @@ export const SILERO_VAD_PREFERENCE_KIND = "gentle-voice.vad" as const;
 
 export const SILERO_STEPS = [
 	{ id: "check", label: "Checking Silero VAD" },
-	{ id: "download", label: "Downloading Silero model" },
+	{ id: "download", label: "Downloading Silero model and runtime" },
 	{ id: "verify", label: "Verifying model integrity" },
 	{ id: "init", label: "Initializing VAD" },
 	{ id: "mic", label: "Verifying microphone capture" },
@@ -57,7 +64,13 @@ const STATE_MARK: Record<SileroStepState, string> = {
 
 export type SileroPlan =
 	| { readonly status: "ready"; readonly path: string; readonly bytes: number }
-	| { readonly status: "missing"; readonly path: string }
+	| {
+		readonly status: "missing";
+		readonly path: string;
+		/** The model file is present; only the runtime is missing. */
+		readonly modelPresent?: boolean;
+		readonly runtimeMissing?: boolean;
+	}
 	| { readonly status: "corrupt"; readonly path: string; readonly bytes: number }
 	| { readonly status: "declined"; readonly path: string };
 
@@ -77,6 +90,7 @@ export interface SileroDriveHost {
 
 export interface SileroInstallIo {
 	fetch(dest: string, signal: AbortSignal): Promise<void>;
+	installRuntime?(signal: AbortSignal): Promise<void>;
 }
 
 export function sileroModelPath(env: NodeJS.ProcessEnv = process.env): string {
@@ -112,7 +126,36 @@ export async function planSileroInstall(
 ): Promise<SileroPlan> {
 	const path = sileroModelPath(env);
 	if (readSileroDeclined(sileroPreferencePath(env))) return { status: "declined", path };
-	return inspectSileroFile(path);
+	const model = await inspectSileroFile(path);
+	if (model.status === "corrupt") return model;
+	const runtimeMissing = resolveSherpaRuntime(env) === undefined;
+	if (model.status === "ready" && !runtimeMissing) return model;
+	return { status: "missing", path, modelPresent: model.status === "ready", runtimeMissing };
+}
+
+/** One screen: what Silero is, both parts it needs, their sizes and licenses. */
+export function formatSileroConsent(plan: SileroPlan, target = sherpaTarget()): string {
+	const modelPresent = plan.status === "missing" && plan.modelPresent === true;
+	const runtimeMissing = plan.status !== "missing" || plan.runtimeMissing !== false;
+	const lines = [
+		"Silero detects when you start and stop talking, so conversation mode sends your turn and listens again without a key.",
+		"It needs two parts:",
+		modelPresent
+			? "- Silero model: already downloaded"
+			: `- Silero model: ~${formatBytes(SILERO_VAD_BYTES)} (MIT)`,
+	];
+	if (!runtimeMissing) {
+		lines.push("- ONNX runtime: already installed");
+	} else if (target) {
+		lines.push(
+			`- ONNX runtime (sherpa-onnx, runs the model on the CPU): ~${formatBytes(sherpaDownloadBytes(target))} download, ~${formatBytes(sherpaInstalledBytes(target))} on disk (Apache-2.0, includes ONNX Runtime under MIT)`,
+		);
+	}
+	lines.push(
+		"Without Silero, conversation uses an energy detector that loud noise can trigger.",
+		"Nothing is downloaded until you accept.",
+	);
+	return lines.join("\n");
 }
 
 export function formatSileroView(steps: readonly SileroStep[]): string[] {
@@ -230,16 +273,17 @@ export async function driveSileroInstall(
 			);
 			return plan;
 		}
-		const accepted = await host.confirm(
-			"Silero VAD",
-			[
-				"Conversation mode recommends Silero to detect speech.",
-				`Download: ~${formatBytes(SILERO_VAD_BYTES)}`,
-				"License: MIT",
-				"Energy VAD stays available if you decline.",
-				"Nothing is downloaded until you accept.",
-			].join("\n"),
-		);
+		const runtimeMissing = plan.status === "missing" && plan.runtimeMissing === true;
+		const target = sherpaTarget();
+		if (runtimeMissing && !target) {
+			clear();
+			host.notify(
+				`Silero has no runtime for ${process.platform}-${process.arch}. Conversation uses the energy fallback.`,
+				"warning",
+			);
+			return plan;
+		}
+		const accepted = await host.confirm("Silero VAD", formatSileroConsent(plan, target));
 		if (signal.aborted) {
 			clear();
 			return plan;
@@ -263,10 +307,15 @@ export async function driveSileroInstall(
 			return plan;
 		}
 		steps = mark(steps, "download", "running");
-		paint("Downloading Silero model");
+		paint("Downloading Silero");
 		const dest = plan.path;
 		try {
-			await (input.io?.fetch ?? defaultSileroFetch)(dest, signal);
+			if (!(plan.status === "missing" && plan.modelPresent)) {
+				await (input.io?.fetch ?? defaultSileroFetch)(dest, signal);
+			}
+			if (runtimeMissing && target) {
+				await (input.io?.installRuntime ?? ((s: AbortSignal) => installSherpaRuntime(target, env, s).then(() => {})))(signal);
+			}
 		} catch (error) {
 			await rm(`${dest}.partial`, { force: true }).catch(() => {});
 			steps = mark(steps, "download", "failed");
@@ -304,7 +353,7 @@ export async function driveSileroInstall(
 	paint("Initializing VAD");
 	const loaded = input.loadVad
 		? await input.loadVad(plan.path)
-		: await tryCreateSileroVad({ modelPath: plan.path });
+		: await tryCreateSileroVad({ modelPath: plan.path, env });
 	if (!loaded.ok) {
 		steps = mark(steps, "init", "failed");
 		paint("Silero VAD");
@@ -358,7 +407,7 @@ export function describeConversationReadiness(input: ConversationReadinessInput)
 		} else if (input.silero === "corrupt") {
 			degraded = "Silero model failed integrity. Energy fallback is active.";
 		} else if (input.silero === "missing") {
-			degraded = "Silero model is not installed. Energy fallback is active.";
+			degraded = "Silero is not installed. Energy fallback is active.";
 		} else if (input.vadBackend.startsWith("energy")) {
 			degraded = `Silero did not load (${input.vadBackend}). Energy fallback is active.`;
 		} else {

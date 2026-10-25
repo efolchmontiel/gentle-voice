@@ -9,6 +9,7 @@ import { access, constants } from "node:fs/promises";
 import { join } from "node:path";
 import { test } from "node:test";
 import { modelPathFrom, resolveVad } from "../lib/vad/resolve-vad.ts";
+import { resolveSherpaRuntime } from "../lib/vad/sherpa-runtime.ts";
 
 const LAB_MODELS =
 	process.env.GENTLE_VOICE_MODELS?.trim()
@@ -71,9 +72,13 @@ test("resolveVad capture-shaped call does NOT report silero_model_path_missing w
 	}
 });
 
-test("integration: launcher env loads real Silero (skip if model/ORT absent)", async (t) => {
+test("integration: launcher env loads real Silero (skip if model/runtime absent)", async (t) => {
 	if (!(await modelReadable(LAB_SILERO))) {
 		t.skip(`Silero model not readable at ${LAB_SILERO}`);
+		return;
+	}
+	if (!resolveSherpaRuntime(process.env)) {
+		t.skip("sherpa-onnx runtime not installed");
 		return;
 	}
 
@@ -110,6 +115,10 @@ test("integration: launcher env loads real Silero (skip if model/ORT absent)", a
 test("integration: MODELS alone is enough when SILERO_VAD unset", async (t) => {
 	if (!(await modelReadable(join(LAB_MODELS, "silero", "silero_vad.onnx")))) {
 		t.skip("lab silero under MODELS not readable");
+		return;
+	}
+	if (!resolveSherpaRuntime(process.env)) {
+		t.skip("sherpa-onnx runtime not installed");
 		return;
 	}
 

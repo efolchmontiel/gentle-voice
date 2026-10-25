@@ -80,6 +80,7 @@ export async function resolveVad(input: ResolveVadInput = {}): Promise<ResolvedV
 	const modelPath = modelPathFrom(input, env);
 	const sileroOpts: SileroVadOptions = {
 		...input.silero,
+		env,
 		modelPath,
 		sampleRateHz: input.silero?.sampleRateHz ?? energyOpts.sampleRateHz ?? 16_000,
 		silenceHangMs: input.silero?.silenceHangMs ?? 900,

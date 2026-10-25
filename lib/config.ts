@@ -71,7 +71,7 @@ export interface VoiceBehaviorConfig {
 	vadMaxIntraPauseMs: number;
 	/**
 	 * VAD backend: energy | silero | auto (try Silero, fall back to energy).
-	 * Default auto — without Silero model/ORT, identical to energy.
+	 * Default auto — without the Silero model or runtime, identical to energy.
 	 */
 	vadBackend: "energy" | "silero" | "auto";
 	/** Optional path to silero_vad.onnx (else GENTLE_VOICE_SILERO_VAD). */
