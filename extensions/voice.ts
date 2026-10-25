@@ -464,8 +464,10 @@ export function createVoiceExtension(pi: VoiceHostApi, options: VoiceExtensionOp
 
 	const rebindAdaptersFromRuntime = () => {
 		if (!useRealAudio) return;
-		const previousKokoro = resolved.kokoroAdapter as { dispose?: () => Promise<void> } | undefined;
-		void previousKokoro?.dispose?.();
+		// Each resolve builds new workers. The old ones would keep their model loaded (two VibeVoice copies fill an 8 GB GPU).
+		for (const previous of [resolved.kokoroAdapter, resolved.vibevoiceAdapter]) {
+			void (previous as { dispose?: () => Promise<void> } | undefined)?.dispose?.();
+		}
 		resolved = resolveLabVoiceAdapters({
 			config: session.config,
 			forceStub: false,
@@ -1233,7 +1235,18 @@ export function createVoiceExtension(pi: VoiceHostApi, options: VoiceExtensionOp
 							ctx.ui.notify("Kokoro was not installed.", "info");
 							return;
 						}
-						await driveKokoroInstall(preparationHost(ctx), {
+						const host = preparationHost(ctx);
+						await driveKokoroInstall({
+							...host,
+							// GENTLE_VOICE_TTS can pin another engine on rebind; this command asked for Kokoro.
+							activateEngine: async () => {
+								const live = await host.activateEngine();
+								if (live.ttsId === "kokoro" || !resolved.kokoroAdapter) return live;
+								void (resolved.vibevoiceAdapter as { dispose?: () => Promise<void> } | undefined)?.dispose?.();
+								session.deps.tts = resolved.kokoroAdapter;
+								return { ...live, ttsId: "kokoro" };
+							},
+						}, {
 							targetDir,
 							voiceHome: resolveVoiceHomeForTts(),
 							consent,

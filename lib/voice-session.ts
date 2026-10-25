@@ -1679,9 +1679,18 @@ export class VoiceSession {
 			case "start_capture": {
 				const signal = this.#bag.derive();
 				// Echo control: never capture while TTS is active.
-				if (this.#state.phase === "speaking" || this.#streamQueue.isBusy) {
+				if (this.#state.phase === "speaking") {
 					this.deps.notify?.("Capture skipped — TTS playing (echo guard).", "warning");
 					return;
+				}
+				if (this.#streamQueue.isBusy) {
+					// Returning here would leave the session listening with a closed mic (ARMING forever).
+					await Promise.race([
+						this.#streamQueue.idle(),
+						new Promise<void>((resolveAbort) => signal.addEventListener("abort", () => resolveAbort(), { once: true })),
+					]);
+					const phaseAfterWait: string = this.#state.phase;
+					if (signal.aborted || phaseAfterWait === "speaking" || this.#streamQueue.isBusy) return;
 				}
 				this.#meter.stopPlaybackVisual();
 				this.#meter.wave.clear();
