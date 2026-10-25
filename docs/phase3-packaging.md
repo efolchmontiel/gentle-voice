@@ -34,11 +34,11 @@ Detection is **env-only** (what GS/Pi inject). Never scans disk for `~/.gentle-s
 | GS `--home` / custom `GENTLE_SHELL_HOME` | `<agentHome>/gentle-voice/` |
 | `GENTLE_VOICE_HOME` set | that path (nested cache) |
 
-Never write into GS `versions/` or `runtime/`. See `/gentle:voice storage`.
+Never write into GS `versions/` or `runtime/`. See `/gentle-voice storage`.
 
 ## First-run (automatic)
 
-- Triggered on `session_start`, first `/gentle:voice`, and shortcut — **not** only via `/gentle:voice setup`.
+- Triggered on `session_start`, first `/gentle-voice`, and shortcut — **not** only via `/gentle-voice setup`.
 - Consent UI when the host exposes `ui.confirm`; else `GENTLE_VOICE_AUTO_DOWNLOAD=1` or setup/manual.
 - Artifacts land under the resolved storage root (GS prefix when isolated/bundled; else XDG / LocalAppData / Application Support).
 - When `GENTLE_VOICE_HOME` is set, cache is nested under that home (ambient lab `GENTLE_VOICE_CACHE` cannot leak).

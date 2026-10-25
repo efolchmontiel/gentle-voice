@@ -128,7 +128,7 @@ export function reduceVoiceState(state: VoiceMachineState, event: VoiceMachineEv
 			return next({ ...state, muted: false });
 		case "LISTEN": {
 			if (!state.enabled) {
-				return next(state, [{ type: "notify", level: "warning", message: "Voice is off. Use /gentle:voice on first." }]);
+				return next(state, [{ type: "notify", level: "warning", message: "Voice is off. Use /gentle-voice on first." }]);
 			}
 			if (state.phase === "listening" || state.phase === "transcribing") return unchanged(state);
 			// Prevent accidental capture while the agent turn is open (ghost STT / echo).
@@ -174,7 +174,7 @@ export function reduceVoiceState(state: VoiceMachineState, event: VoiceMachineEv
 				return next(state, [{
 					type: "notify",
 					level: "warning",
-					message: "Voice is off. Use /gentle:voice on first.",
+					message: "Voice is off. Use /gentle-voice on first.",
 				}]);
 			}
 			if (state.phase === "awaiting_agent" || state.phase === "speaking") {

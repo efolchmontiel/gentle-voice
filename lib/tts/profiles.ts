@@ -136,7 +136,7 @@ export const TTS_PROVIDER_RESEARCH_CATALOG: readonly TtsProviderInfo[] = Object.
 		verifiedLocally: true,
 		licenseHint: "MIT (research weights; English-trained)",
 		notes:
-			"Optional keep-alive worker. PCM when the host can play float32; WAV via /gentle:voice stream wav. Audible disclaimer is kept. Not the Piper default.",
+			"Optional keep-alive worker. PCM when the host can play float32; WAV via /gentle-voice stream wav. Audible disclaimer is kept. Not the Piper default.",
 	}),
 ]);
 

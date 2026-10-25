@@ -4,9 +4,13 @@ All notable changes to Gentle Voice are documented here.
 
 ## [Unreleased]
 
+### Changed
+
+- **Breaking:** the command is now `/gentle-voice`, replacing `/gentle:voice`. Gentle Shell ships its own `/gentle:voice` for local dictation, and Pi suffixed the two duplicate names as `/gentle:voice:1` and `/gentle:voice:2`. Every subcommand works as before under the new name, for example `/gentle-voice setup` and `/gentle-voice purge`.
+
 ### Added
 
-- On WSL2 with WSLg, `/gentle:voice setup` connects PipeWire to the Windows microphone. Before, it only said `Microphone missing`. It names the exact missing piece: WSLg, the PipeWire packages (as an `apt` command it does not run), a hung WSLg audio server, or the Windows microphone permission. After a confirm, it writes one user-level pulse-tunnel drop-in and enables the PipeWire user services. The tunnels are `nofail`, so a down WSLg server never keeps PipeWire from starting, and a bridge that did not load is offered a service restart. Native Linux is unchanged. (#13)
+- On WSL2 with WSLg, `/gentle-voice setup` connects PipeWire to the Windows microphone. Before, it only said `Microphone missing`. It names the exact missing piece: WSLg, the PipeWire packages (as an `apt` command it does not run), a hung WSLg audio server, or the Windows microphone permission. After a confirm, it writes one user-level pulse-tunnel drop-in and enables the PipeWire user services. The tunnels are `nofail`, so a down WSLg server never keeps PipeWire from starting, and a bridge that did not load is offered a service restart. Native Linux is unchanged. (#13)
 
 ## [0.1.8] — 2026-10-21
 

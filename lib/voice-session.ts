@@ -147,7 +147,7 @@ export class VoiceSession {
 	#captureStop: (() => Promise<void>) | undefined;
 	#pendingSpeakText = "";
 	#lastTranscript = "";
-	/** Draft awaiting explicit `/gentle:voice send` (review mode). */
+	/** Draft awaiting explicit `/gentle-voice send` (review mode). */
 	#pendingReviewText = "";
 	#lastSubmittedText = "";
 	/** True after explicit/auto submit until agent_settled (blocks duplicate send). */
@@ -327,7 +327,7 @@ export class VoiceSession {
 		return this.#streamTurnId;
 	}
 
-	/** Exact last transcript voice submitted (for /gentle:voice edit). */
+	/** Exact last transcript voice submitted (for /gentle-voice edit). */
 	get lastSubmittedText(): string {
 		return this.#lastSubmittedText;
 	}
@@ -2162,7 +2162,7 @@ export class VoiceSession {
 			this.#pendingReviewText = text;
 			this.dispatch({ type: "TRANSCRIBE_REVIEW", text });
 			this.deps.notify?.(
-				`Auto-send blocked (${gate.reason}) — review draft, then /gentle:voice send.`,
+				`Auto-send blocked (${gate.reason}) — review draft, then /gentle-voice send.`,
 				"warning",
 			);
 			return;

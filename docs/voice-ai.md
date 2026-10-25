@@ -28,12 +28,12 @@ Narration stays `after_settle`. Pi `text_delta` is provisional: tools, thinking,
 ## Commands
 
 ```text
-/gentle:voice add voice-ai          # empty voice-ai role on every existing profile; no model, no thinking
-/gentle:voice voice-ai on|off|status
-/gentle:voice voice-ai-profile   # lab only: seed OpenSource.voice-ai → MiMo (does not change orchestrator)
+/gentle-voice add voice-ai          # empty voice-ai role on every existing profile; no model, no thinking
+/gentle-voice voice-ai on|off|status
+/gentle-voice voice-ai-profile   # lab only: seed OpenSource.voice-ai → MiMo (does not change orchestrator)
 ```
 
-`/gentle:voice add voice-ai` adds the empty role and a `voice-ai` agent file so `/gentle:models` lists it. The command does not create `profiles.json`. If that file is missing, create a profile with `/gentle:profiles` and run the command again. Model and effort are set on the `voice-ai` row in `/gentle:models`, then saved. When the profiles file already exists, the first session of an install does the same.
+`/gentle-voice add voice-ai` adds the empty role and a `voice-ai` agent file so `/gentle:models` lists it. The command does not create `profiles.json`. If that file is missing, create a profile with `/gentle:profiles` and run the command again. Model and effort are set on the `voice-ai` row in `/gentle:models`, then saved. When the profiles file already exists, the first session of an install does the same.
 
 The extra call is a second model request, billed apart from the orchestrator. `voice-ai` is the role name, not a model name. MiMo is one model that can fill it. Input is the assistant text clipped to 8000 characters. The default timeout is 25 seconds. One lab observation with MiMo was 363 input tokens and 9 output tokens. That figure is not a quota and it does not mean the model is free. Off, an invalid role, a provider error, or a timeout skips the extra call and uses the deterministic renderer. The written reply stays as the orchestrator wrote it.
 
@@ -41,10 +41,10 @@ Activation (not GS profiles):
 
 | State | Narration LLM |
 | --- | --- |
-| Preference unset + `/gentle:voice converse on` | on (automatic) |
+| Preference unset + `/gentle-voice converse on` | on (automatic) |
 | Preference unset + normal chat | off |
-| `/gentle:voice voice-ai on` | on (explicit; survives converse off) |
-| `/gentle:voice voice-ai off` | off (explicit; converse does not re-enable) |
+| `/gentle-voice voice-ai on` | on (explicit; survives converse off) |
+| `/gentle-voice voice-ai off` | off (explicit; converse does not re-enable) |
 | `GENTLE_VOICE_AI=0` and preference still unset | process lock off |
 
 Preference file: `$GENTLE_VOICE_HOME/voice-ai-preference.json`. Status resolves the profile even when narration is disabled.
@@ -75,4 +75,4 @@ Model/effort live in `/gentle:profiles`, not duplicated in GV config.
 
 ## converse-style (separate)
 
-`/gentle:voice converse-style` still injects `appendSystemPrompt` on the **same** orchestrator turn (style only). Prefer Voice AI for spoken naturalness without changing the written reply.
+`/gentle-voice converse-style` still injects `appendSystemPrompt` on the **same** orchestrator turn (style only). Prefer Voice AI for spoken naturalness without changing the written reply.

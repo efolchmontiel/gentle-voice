@@ -45,5 +45,5 @@ Enable lab only with `GENTLE_VOICE_LAB=1` or `GENTLE_VOICE_REAL_AUDIO=1`, and po
 ## Uninstall / cleanup
 
 - Package: `gentle-shell remove npm:gentle-voice` or `pi remove npm:gentle-voice`
-- Data: `/gentle:voice storage` dry-run only; no automatic delete
+- Data: `/gentle-voice storage` dry-run only; no automatic delete
 - Never deletes third-party STT/TTS installs outside Gentle Voice storage

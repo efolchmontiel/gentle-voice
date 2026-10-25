@@ -28,7 +28,7 @@ test("add voice-ai is a public command", () => {
 	assert.equal(parsed.command, "add");
 	assert.equal(parsed.rest, "voice-ai");
 	assert.equal(parsed.error, undefined);
-	assert.match(voiceHelpText(), /\/gentle:voice add voice-ai/);
+	assert.match(voiceHelpText(), /\/gentle-voice add voice-ai/);
 });
 
 test("bundled Gentle Shell writes its own profiles file", () => {

@@ -87,7 +87,7 @@ test("parseVoiceArgs covers subcommands", () => {
 	assert.equal(parseVoiceArgs("on").command, "on");
 	assert.equal(parseVoiceArgs("status").command, "status");
 	assert.ok(parseVoiceArgs("nope").error);
-	assert.equal(VOICE_COMMAND, "gentle:voice");
+	assert.equal(VOICE_COMMAND, "gentle-voice");
 });
 
 test("CancellationBag aborts derived signals", () => {
@@ -106,7 +106,7 @@ test("fake process cancels on abort", async () => {
 	assert.equal(result.signal, "SIGTERM");
 });
 
-test("extension registers /gentle:voice without Pi install", async () => {
+test("extension registers /gentle-voice without Pi install", async () => {
 	const commands = new Map<string, { handler: (args: string, ctx: never) => Promise<void> }>();
 	const notifications: string[] = [];
 	const pi: VoiceHostApi = {
@@ -118,7 +118,9 @@ test("extension registers /gentle:voice without Pi install", async () => {
 	createVoiceExtension(pi, {
 		config: { ...DEFAULT_VOICE_CONFIG, enabled: false },
 	});
-	assert.ok(commands.has("gentle:voice"));
+	assert.ok(commands.has("gentle-voice"));
+	// Gentle Shell owns /gentle:voice (native dictation).
+	assert.ok(!commands.has("gentle:voice"));
 
 	const ctx = {
 		mode: "tui" as const,
@@ -132,6 +134,6 @@ test("extension registers /gentle:voice without Pi install", async () => {
 		},
 		isIdle: () => true,
 	};
-	await commands.get("gentle:voice")!.handler("status", ctx as never);
+	await commands.get("gentle-voice")!.handler("status", ctx as never);
 	assert.ok(notifications.some((n) => n.includes("platform=")));
 });

@@ -13,28 +13,28 @@ When VibeVoice is the active engine and `pw-play` supports raw float32, playback
 | `wav` | WAV |
 
 ```text
-/gentle:voice stream status
-/gentle:voice stream wav
-/gentle:voice stream pcm
-/gentle:voice stream auto
+/gentle-voice stream status
+/gentle-voice stream wav
+/gentle-voice stream pcm
+/gentle-voice stream auto
 ```
 
 `GENTLE_VOICE_VIBEVOICE_NATIVE_STREAM=0` (also `off`, `false`, or `wav`) forces WAV for that process and overrides the preference file. `=1` requests PCM for that process. A real synthesis failure does not play the same sentence a second time as WAV.
 
-Return to WAV with `/gentle:voice stream wav`.
+Return to WAV with `/gentle-voice stream wav`.
 
 ## Engine
 
 ```text
-/gentle:voice tts vibevoice
-/gentle:voice tts piper
+/gentle-voice tts vibevoice
+/gentle-voice tts piper
 ```
 
-The engine switch lasts for the session. Piper stays available and does not require VibeVoice. `/gentle:voice tts vibevoice` reports the probe reason when the engine is not ready. You do not need lab mode.
+The engine switch lasts for the session. Piper stays available and does not require VibeVoice. `/gentle-voice tts vibevoice` reports the probe reason when the engine is not ready. You do not need lab mode.
 
 ## Install plan
 
-`/gentle:voice vibevoice-setup` detects an NVIDIA GPU, total VRAM, free disk, and whether the destination is tmpfs. The confirm dialog is short. `vibevoice-setup plan` prints the full terms. Accepting the dialog authorizes the download. `GENTLE_VOICE_VIBEVOICE_ALLOW_NETWORK=0` refuses the network even after accept. The destination is the persistent Gentle Voice data directory, not `/tmp`. A verified file is kept and not downloaded again. The wizard does not modify an engine directory that already passes the probe.
+`/gentle-voice vibevoice-setup` detects an NVIDIA GPU, total VRAM, free disk, and whether the destination is tmpfs. The confirm dialog is short. `vibevoice-setup plan` prints the full terms. Accepting the dialog authorizes the download. `GENTLE_VOICE_VIBEVOICE_ALLOW_NETWORK=0` refuses the network even after accept. The destination is the persistent Gentle Voice data directory, not `/tmp`. A verified file is kept and not downloaded again. The wizard does not modify an engine directory that already passes the probe.
 
 A new install is blocked without an NVIDIA GPU, with less than 4 GB of total VRAM, or with less than 12 GiB free. The one measured tree was 8611023085 bytes, about 8.6 GiB, so 8 GiB free cannot hold it. 8 GB of VRAM is recommended because that is the tested card. A larger card is not automatically supported. The preferred voice is `sp-Spk0_woman`. Playback is PCM when `pw-play` supports float32.
 
@@ -56,7 +56,7 @@ With `GENTLE_VOICE_VIBEVOICE_ALLOW_NETWORK=1` and an accepted confirm dialog, th
 
 Until that file says both of those values, the probe stays `awaiting_user_authorization` and Gentle Voice will not start the worker.
 
-8. `/gentle:voice tts vibevoice` selects it for the session when the probe is `ready`. `/gentle:voice status` shows `vibevoiceReady`. `/gentle:voice tts piper` leaves VibeVoice uninstalled and stops a worker that was already started.
+8. `/gentle-voice tts vibevoice` selects it for the session when the probe is `ready`. `/gentle-voice status` shows `vibevoiceReady`. `/gentle-voice tts piper` leaves VibeVoice uninstalled and stops a worker that was already started.
 
 The worker script ships in this package. The engine directory's `scripts/lab_worker.py` wins when it is present. The worker refuses to start without `GENTLE_VOICE_VIBEVOICE_HOME`.
 

@@ -92,7 +92,7 @@ As in `docs/kokoro-portable.md`, product path:
 
 ## 7. Implementation priority (after audit approval)
 
-1. **Latency timeline instrumentation** in `VoiceSession` (monotonic marks; `/gentle:voice status` optional dump).  
+1. **Latency timeline instrumentation** in `VoiceSession` (monotonic marks; `/gentle-voice status` optional dump).  
 2. **VAD tune / Silero spike** with A/B metrics.  
 3. **Partial STT spike** (whisper.cpp or sherpa) — UI only.  
 4. **TTS continuity** (sentence assembler / gap reduction) on Piper.  

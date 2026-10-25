@@ -137,7 +137,7 @@ test("2D.5 edit without new capture returns last with resend semantics", async (
 	session.dispatch({ type: "STOP" });
 	await session.flush();
 
-	await harness.runCommand("gentle:voice", "edit");
+	await harness.runCommand("gentle-voice", "edit");
 	assert.equal(session.editHold, true);
 	assert.equal(harness.ctx.ui.getEditorText?.(), "mensaje previo");
 	assert.ok(harness.notifies.some((n) => /LAST sent/i.test(n.message)));
@@ -207,7 +207,7 @@ test("2D.5 edit does not overwrite editor without confirm refusal path", async (
 	await session.submitPending("voz enviada");
 	session.dispatch({ type: "STOP" });
 	await session.flush();
-	await harness.runCommand("gentle:voice", "edit");
+	await harness.runCommand("gentle-voice", "edit");
 	assert.equal(confirmCalls, 1);
 	assert.equal(harness.ctx.ui.getEditorText?.(), "texto previo del usuario");
 	assert.equal(session.editHold, false);

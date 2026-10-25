@@ -144,7 +144,7 @@ test("missing PipeWire packages print the exact apt command and never run sudo",
 	assert.deepEqual(state.writes, []);
 	assert.deepEqual(h.confirms, []);
 	assert.match(h.notes[0].message, /sudo apt install pipewire pipewire-bin wireplumber pulseaudio-utils/);
-	assert.match(h.notes[0].message, /\/gentle:voice setup/);
+	assert.match(h.notes[0].message, /\/gentle-voice setup/);
 });
 
 test("missing RDPSource points to the Windows microphone permission", async () => {

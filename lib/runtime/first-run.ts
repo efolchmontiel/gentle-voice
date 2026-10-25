@@ -351,7 +351,7 @@ async function chooseSetupDownloads(
 		const snap = snapshotFromPlan({
 			...plan,
 			status: "needs_manual",
-			summary: "Host has no confirm() UI. Re-run /gentle:voice setup in an interactive session.",
+			summary: "Host has no confirm() UI. Re-run /gentle-voice setup in an interactive session.",
 		});
 		await saveReadiness(snap, plan.layout);
 		host.notify(snap.message, "warning");
@@ -503,7 +503,7 @@ async function chooseSetupDownloads(
 		const snap = snapshotFromPlan({
 			...plan,
 			status: "needs_manual",
-			summary: "No speech components were installed. Re-run /gentle:voice setup when you want them.",
+			summary: "No speech components were installed. Re-run /gentle-voice setup when you want them.",
 		});
 		await saveReadiness(snap, plan.layout);
 		host.notify(snap.message, "warning");
