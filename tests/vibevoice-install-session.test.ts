@@ -50,7 +50,7 @@ function ioWithHeldPip(release: { go: () => void }, signalBox: { signal?: AbortS
 				return { code: 0 };
 			}
 			if (args.some((arg) => arg.includes("importlib.metadata"))) return { code: depsReady ? 0 : 4 };
-			if (slash(command).endsWith("/.venv/bin/pip")) {
+			if (slash(command).endsWith("/.venv/bin/pip") && !depsReady) {
 				await new Promise<void>((resolve, reject) => {
 					const finish = (): void => resolve();
 					release.go = () => {
