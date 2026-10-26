@@ -6,7 +6,7 @@
 import type { ListenStats } from "./vad/listen-stats.ts";
 
 /** High-level voice interaction mode. */
-export type VoiceMode = "dictation" | "conversation" | "silent";
+export type VoiceMode = "dictation" | "conversation" | "silent" | "listen";
 
 /**
  * Session phase for the voice state machine.
@@ -41,6 +41,7 @@ export type VoiceCommandName =
 	| "barge-in"
 	| "tts"
 	| "lang"
+	| "mode"
 	| "vibevoice-setup"
 	| "";
 

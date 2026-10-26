@@ -32,6 +32,19 @@ import { createKokoroNetworkIo, formatKokoroConsent, kokoroBasePythonAvailable }
 import { driveKokoroInstall } from "../kokoro/install-drive.ts";
 import { completeConversationSetup } from "./conversation-setup.ts";
 import {
+	USAGE_CONVERSATION_LABEL,
+	USAGE_DICTATION_LABEL,
+	USAGE_LISTEN_LABEL,
+	hasStoredVoiceUsage,
+	parseUsageChoice,
+	resolveVoiceUsage,
+	usageNeedsSilero,
+	usageNeedsSpeechRecognition,
+	usageNeedsVoiceEngine,
+	writeVoiceUsage,
+	type VoiceUsage,
+} from "../usage/voice-usage.ts";
+import {
 	readTtsEnginePreference,
 	readTtsRecommendationDeclined,
 	resolveVoiceHomeForTts,
@@ -94,6 +107,8 @@ export interface FirstRunHost extends InstallDriveHost {
 	select?(title: string, options: readonly string[]): Promise<string | undefined>;
 	captureReady?(): Promise<boolean>;
 	prepareCapture?(): Promise<void>;
+	/** Applies a usage chosen during onboarding to the running session. */
+	applyUsage?(usage: VoiceUsage): void;
 }
 
 async function finishConversation(
@@ -102,6 +117,7 @@ async function finishConversation(
 	plan: FirstRunPlan,
 ): Promise<void> {
 	if (typeof host.confirm !== "function") return;
+	if (!usageNeedsSilero(resolveVoiceUsage(resolveVoiceHomeForTts(env), env))) return;
 	const live = host.activateEngine ? await host.activateEngine() : undefined;
 	const sttReady = !plan.missing.some((item) => item.kind.startsWith("stt"));
 	const piperMissing = plan.missing.some((item) => item.id.startsWith("piper"));
@@ -174,9 +190,12 @@ export async function buildFirstRunPlan(
 		: preference === "kokoro" && isKokoroReady(env)
 			? "Kokoro"
 			: undefined;
-	const outstanding = otherEngine
-		? missing.filter((art) => !art.kind.startsWith("tts"))
-		: missing;
+	const usage = resolveVoiceUsage(resolveVoiceHomeForTts(env), env);
+	const outstanding = missing.filter((art) => {
+		if (art.kind.startsWith("tts")) return !otherEngine && usageNeedsVoiceEngine(usage);
+		if (art.kind.startsWith("stt")) return usageNeedsSpeechRecognition(usage);
+		return true;
+	});
 
 	if (outstanding.length === 0 && blockers.length === 0) {
 		return {
@@ -187,7 +206,9 @@ export async function buildFirstRunPlan(
 			status: "ready",
 			summary: missing.length === 0
 				? "All pinned STT/TTS artifacts present under the private Gentle Voice data dir."
-				: `Speech recognition is ready. The voice engine is ${otherEngine}.`,
+				: otherEngine && usage === "conversation"
+					? `Speech recognition is ready. The voice engine is ${otherEngine}.`
+					: `Everything ${usage === "listen" ? "listen-only" : usage} mode needs is installed.`,
 			estimatedDownloadBytes: 0,
 			blockers,
 		};
@@ -346,6 +367,32 @@ async function chooseInstallEnv(
 	return { env: persistentEnv, refuseDownloads: false };
 }
 
+/**
+ * Asked once, before the engine menu, and only of a new user: someone who
+ * already picked an engine keeps conversation without a new question.
+ */
+async function chooseUsage(host: FirstRunHost, env: NodeJS.ProcessEnv): Promise<void> {
+	const voiceHome = resolveVoiceHomeForTts(env);
+	if (
+		hasStoredVoiceUsage(voiceHome)
+		|| env.GENTLE_VOICE_USAGE
+		|| env.GENTLE_VOICE_AUTO_DOWNLOAD === "1"
+		|| env.GENTLE_VOICE_DISABLE_DOWNLOADS === "1"
+		|| typeof host.select !== "function"
+		|| readTtsEnginePreference(voiceHome) !== "unset"
+		|| readTtsRecommendationDeclined(voiceHome)
+	) return;
+	const usage = parseUsageChoice(await chooseOption(
+		host,
+		"How do you want to use Gentle Voice?",
+		"Only what this choice needs is offered for download. /gentle-voice mode changes it later.",
+		[USAGE_CONVERSATION_LABEL, USAGE_DICTATION_LABEL, USAGE_LISTEN_LABEL],
+	));
+	if (!usage) return;
+	writeVoiceUsage(voiceHome, usage);
+	host.applyUsage?.(usage);
+}
+
 async function chooseSetupDownloads(
 	host: FirstRunHost,
 	env: NodeJS.ProcessEnv,
@@ -414,6 +461,7 @@ async function chooseSetupDownloads(
 		...(readiness.reason ? { damageDetail: readiness.reason } : {}),
 	});
 	const chosen: RuntimeArtifact[] = [];
+	const wantsVoice = usageNeedsVoiceEngine(resolveVoiceUsage(voiceHome, env));
 	const acceptPiperDownload = async (): Promise<boolean> => {
 		if (piper.length === 0) return true;
 		if (auto) return false;
@@ -454,7 +502,9 @@ async function chooseSetupDownloads(
 		rememberEngine("piper");
 		if (await acceptPiperDownload()) chosen.push(...piper);
 	};
-	if (recommendation.action === "ask" && !auto) {
+	if (!wantsVoice) {
+		/* Dictation reads nothing aloud, so no voice engine is offered. */
+	} else if (recommendation.action === "ask" && !auto) {
 		const picked = parseEngineChoice(
 			await chooseOption(host, recommendation.title, recommendation.message, recommendation.options),
 		);
@@ -532,7 +582,7 @@ async function chooseSetupDownloads(
 		));
 		if (ok) chosen.push(...stt);
 	}
-	if (chosen.length === 0 && stt.length > 0 && recommendation.action !== "ready" && recommendation.action !== "keep") {
+	if (chosen.length === 0 && stt.length > 0 && (!wantsVoice || (recommendation.action !== "ready" && recommendation.action !== "keep"))) {
 		const snap = snapshotFromPlan({
 			...plan,
 			status: "needs_manual",
@@ -582,6 +632,7 @@ export async function runFirstRunPreparation(
 			summary: "The install location is on tmpfs. No speech download was started.",
 		});
 	}
+	await chooseUsage(host, decision.env);
 	const plan = await buildFirstRunPlan(decision.env);
 	await ensureDirs(plan.layout);
 

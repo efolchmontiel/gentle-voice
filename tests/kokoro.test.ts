@@ -13,6 +13,7 @@ import {
 	ENGINE_KOKORO,
 	GPU_PREMIUM_LABEL,
 	RECOMMENDED_FOR_SYSTEM,
+	VOICE_QUALITY_LABEL,
 	followEngineSelection,
 	parseEngineChoice,
 	recommendTts,
@@ -61,7 +62,7 @@ test("a stored kokoro preference round-trips", () => {
 test("the menu recommends a runnable Kokoro and keeps VibeVoice as the GPU option", () => {
 	const menu = voiceEngineOptions("supported", true, { runnable: true, installed: false });
 	assert.equal(menu.recommended, "kokoro");
-	assert.equal(menu.options[0], `${ENGINE_KOKORO}  ${RECOMMENDED_FOR_SYSTEM}`);
+	assert.equal(menu.options[0], `${ENGINE_KOKORO}  ${VOICE_QUALITY_LABEL.kokoro}  ${RECOMMENDED_FOR_SYSTEM}`);
 	assert.equal(menu.options[1]?.endsWith(GPU_PREMIUM_LABEL), true);
 	assert.equal(menu.options.filter((o) => o.includes(RECOMMENDED_FOR_SYSTEM)).length, 1);
 	assert.equal(parseEngineChoice(menu.options[0]), "kokoro");

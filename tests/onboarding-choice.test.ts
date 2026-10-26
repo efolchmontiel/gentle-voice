@@ -20,6 +20,7 @@ import {
 	recommendTts,
 	NOT_SUPPORTED_LABEL,
 	RECOMMENDED_FOR_SYSTEM,
+	VOICE_QUALITY_LABEL,
 	vibevoiceInstallState,
 	type EngineInstallState,
 	type VibeVoiceCompatibility,
@@ -81,8 +82,8 @@ function recommendation(over: {
 test("the selector names engines, and Pi highlights the recommended one first", () => {
 	const supported = recommendation();
 	assert.deepEqual(supported.options, [
-		`${ENGINE_VIBEVOICE}  ${RECOMMENDED_FOR_SYSTEM}`,
-		ENGINE_PIPER,
+		`${ENGINE_VIBEVOICE}  ${VOICE_QUALITY_LABEL.vibevoice}  ${RECOMMENDED_FOR_SYSTEM}`,
+		`${ENGINE_PIPER}  ${VOICE_QUALITY_LABEL.piper}`,
 		ENGINE_SKIP,
 	]);
 	assert.equal(supported.options[0]?.includes("Install"), false);
@@ -91,15 +92,15 @@ test("the selector names engines, and Pi highlights the recommended one first", 
 		compatibility: "unsupported",
 		compatibilityReasons: ["gpu_required"],
 	});
-	assert.equal(unsupported.options[0], `${ENGINE_PIPER}  ${RECOMMENDED_FOR_SYSTEM}`);
-	assert.equal(unsupported.options[1], `${ENGINE_VIBEVOICE}  (Not supported)`);
+	assert.equal(unsupported.options[0], `${ENGINE_PIPER}  ${VOICE_QUALITY_LABEL.piper}  ${RECOMMENDED_FOR_SYSTEM}`);
+	assert.equal(unsupported.options[1], `${ENGINE_VIBEVOICE}  ${VOICE_QUALITY_LABEL.vibevoice}  (Not supported)`);
 	assert.equal(unsupported.options[2], ENGINE_SKIP);
 	const unknown = recommendation({
 		compatibility: "unknown",
 		compatibilityReasons: ["gpu_probe_unavailable"],
 	});
-	assert.equal(unknown.options[0], `${ENGINE_PIPER}  ${RECOMMENDED_FOR_SYSTEM}`);
-	assert.equal(unknown.options[1], `${ENGINE_VIBEVOICE}  (Compatibility unknown)`);
+	assert.equal(unknown.options[0], `${ENGINE_PIPER}  ${VOICE_QUALITY_LABEL.piper}  ${RECOMMENDED_FOR_SYSTEM}`);
+	assert.equal(unknown.options[1], `${ENGINE_VIBEVOICE}  ${VOICE_QUALITY_LABEL.vibevoice}  (Compatibility unknown)`);
 	assert.match(explainTtsBlock(["gpu_required"]), /NVIDIA GPU/);
 	assert.match(explainTtsBlock(["gpu_probe_unavailable"]), /could not be confirmed/);
 });
@@ -310,6 +311,7 @@ test("a clean home asks for an engine and downloads nothing when consent is refu
 			notify: () => undefined,
 			select: async (title, options) => {
 				titles.push(title);
+				if (title === "How do you want to use Gentle Voice?") return options[0];
 				assert.equal(title, "Choose your voice engine");
 				assert.equal(options.some((option) => option.startsWith("Finish")), false);
 				assert.equal(options.some((option) => option.startsWith("Install")), false);
@@ -329,7 +331,7 @@ test("a clean home asks for an engine and downloads nothing when consent is refu
 				return false;
 			},
 		}, env);
-		assert.deepEqual(titles, ["Choose your voice engine"]);
+		assert.deepEqual(titles, ["How do you want to use Gentle Voice?", "Choose your voice engine"]);
 		assert.equal(confirms.includes("Install speech recognition?"), true);
 		assert.ok(confirms.indexOf("Silero VAD") > confirms.indexOf("Install speech recognition?"));
 		const askedForEngine = confirms.some((title) => title.startsWith("Install VibeVoice") || title.startsWith("Finish VibeVoice") || title === "Install Piper?" || title === "Install Kokoro?");

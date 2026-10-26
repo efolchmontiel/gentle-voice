@@ -198,7 +198,7 @@ export type VoiceConfigValidation =
 	| { ok: true; config: VoiceConfig }
 	| { ok: false; errors: string[] };
 
-const MODES: ReadonlySet<string> = new Set(["dictation", "conversation", "silent"]);
+const MODES: ReadonlySet<string> = new Set(["dictation", "conversation", "silent", "listen"]);
 
 function isPlainObject(value: unknown): value is Record<string, unknown> {
 	return typeof value === "object" && value !== null && !Array.isArray(value);
@@ -259,7 +259,7 @@ export function validateVoiceConfig(input: unknown): VoiceConfigValidation {
 		? DEFAULT_VOICE_CONFIG.behavior.mode
 		: typeof behaviorIn.mode === "string" && MODES.has(behaviorIn.mode)
 			? behaviorIn.mode as VoiceMode
-			: (errors.push('behavior.mode must be "dictation" | "conversation" | "silent"'), DEFAULT_VOICE_CONFIG.behavior.mode);
+			: (errors.push('behavior.mode must be "dictation" | "conversation" | "silent" | "listen"'), DEFAULT_VOICE_CONFIG.behavior.mode);
 
 	const muted = behaviorIn.muted === undefined
 		? DEFAULT_VOICE_CONFIG.behavior.muted

@@ -4,6 +4,17 @@ All notable changes to Gentle Voice are documented here.
 
 ## [Unreleased]
 
+### Added
+
+- Three modes, so a conversation is no longer required: `conversation`, `dictation` (speech to text into the Pi editor, nothing read aloud), and `listen` (typed prompts are read aloud, the microphone never opens). `/gentle-voice mode conversation|dictation|listen` switches and remembers the choice; `GENTLE_VOICE_USAGE` overrides it.
+- The first launch asks for the mode before anything else and only offers what it needs: dictation skips the voice engine, listen-only skips Whisper and Silero.
+- The voice-engine list says how each engine sounds: `Kokoro (Balanced voice)`, `VibeVoice (Natural voice)`, `Piper (Robotic voice)`.
+- `pnpm test:clean` removes test scratch directories left in the system temp directory by older runs.
+
+### Fixed
+
+- `pnpm test` no longer leaves about 65 `gv-*` directories in `/tmp`; it removes what the run created, even when a test fails.
+
 ## [0.3.0] — 2026-10-25
 
 ### Fixed

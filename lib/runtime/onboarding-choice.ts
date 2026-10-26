@@ -25,6 +25,12 @@ export const RECOMMENDED_FOR_SYSTEM = "(Recommended for your system)";
 export const NOT_SUPPORTED_LABEL = "(Not supported)";
 export const COMPATIBILITY_UNKNOWN_LABEL = "(Compatibility unknown)";
 export const GPU_PREMIUM_LABEL = "(NVIDIA GPU, larger download)";
+/** How each engine sounds, so the choice is not made on size alone. */
+export const VOICE_QUALITY_LABEL = {
+	vibevoice: "(Natural voice)",
+	kokoro: "(Balanced voice)",
+	piper: "(Robotic voice)",
+} as const;
 
 export type EngineChoice = "kokoro" | "vibevoice" | "piper" | "skip";
 
@@ -134,7 +140,14 @@ export function vibevoiceInstallState(input: {
 }
 
 export function engineOptionLabel(name: string, tag?: string): string {
-	return tag ? `${name}  ${tag}` : name;
+	const quality = name === ENGINE_VIBEVOICE
+		? VOICE_QUALITY_LABEL.vibevoice
+		: name === ENGINE_KOKORO
+			? VOICE_QUALITY_LABEL.kokoro
+			: name === ENGINE_PIPER
+				? VOICE_QUALITY_LABEL.piper
+				: undefined;
+	return [name, quality, tag].filter(Boolean).join("  ");
 }
 
 /**
@@ -157,7 +170,7 @@ export function voiceEngineOptions(
 			options: [
 				engineOptionLabel(ENGINE_KOKORO, RECOMMENDED_FOR_SYSTEM),
 				engineOptionLabel(ENGINE_VIBEVOICE, premiumTag),
-				ENGINE_PIPER,
+				engineOptionLabel(ENGINE_PIPER),
 				ENGINE_SKIP,
 			],
 		};

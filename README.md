@@ -57,9 +57,21 @@ That model writes the spoken line. The orchestrator model keeps writing the text
 
 Restart the host after installing.
 
-The first launch does not download models by itself. On Linux x64 with Python 3.11 to 3.14, the voice-engine list is `Kokoro`, `VibeVoice`, `Piper`, and `Skip`. Kokoro is recommended: natural Spanish and English voices on the CPU, about 370 MB on disk. VibeVoice is the optional GPU engine, labeled `(NVIDIA GPU, larger download)`. Without a usable Python, the list is `VibeVoice`, `Piper`, and `Skip`. Pi highlights the first row, so the recommended engine is listed first with `(Recommended for your system)`. In that shorter list, VibeVoice is recommended only when Linux x64, an NVIDIA GPU of at least 4 GB, 12 GiB free, and `python3` are confirmed. A failed GPU check is labeled `(Compatibility unknown)` and does not count as proof that the GPU is missing. Piper is the recommendation in that case, and when VibeVoice is `(Not supported)`, as long as Piper itself can run. Choosing an engine does not start a download. The install, finish, or repair question comes next. After Yes, Pi keeps a checklist on screen: each real step stays visible as Pending, Running, Completed, Failed, Reused, or Skipped. Notifications are not the progress view. When the checklist finishes, the engine is selected in the current session. `Ready to use` is shown only after that activation. No audio is played. `/gentle-voice status` and `/gentle-voice vibevoice-setup plan` stay available while that runs. `/gentle-voice vibevoice-setup cancel` stops it and keeps verified files. The next launch does not ask again when the install is already verified. Whisper is a separate question. An explicit Kokoro, Piper, or VibeVoice choice is kept. `/gentle-voice setup` repeats the check. It does not install GPU drivers, CUDA, or a system Python.
+The first launch does not download models by itself. It first asks how you want to use Gentle Voice: `Conversation`, `Dictation only`, or `Listen only` (see [Modes](#modes)). Only what that mode needs is offered afterwards: dictation never shows the voice-engine list, and listen-only never asks for Whisper or Silero. Each engine in the list says how it sounds: `Kokoro (Balanced voice)`, `VibeVoice (Natural voice)`, and `Piper (Robotic voice)`. On Linux x64 with Python 3.11 to 3.14, the voice-engine list is `Kokoro`, `VibeVoice`, `Piper`, and `Skip`. Kokoro is recommended: natural Spanish and English voices on the CPU, about 370 MB on disk. VibeVoice is the optional GPU engine, labeled `(NVIDIA GPU, larger download)`. Without a usable Python, the list is `VibeVoice`, `Piper`, and `Skip`. Pi highlights the first row, so the recommended engine is listed first with `(Recommended for your system)`. In that shorter list, VibeVoice is recommended only when Linux x64, an NVIDIA GPU of at least 4 GB, 12 GiB free, and `python3` are confirmed. A failed GPU check is labeled `(Compatibility unknown)` and does not count as proof that the GPU is missing. Piper is the recommendation in that case, and when VibeVoice is `(Not supported)`, as long as Piper itself can run. Choosing an engine does not start a download. The install, finish, or repair question comes next. After Yes, Pi keeps a checklist on screen: each real step stays visible as Pending, Running, Completed, Failed, Reused, or Skipped. Notifications are not the progress view. When the checklist finishes, the engine is selected in the current session. `Ready to use` is shown only after that activation. No audio is played. `/gentle-voice status` and `/gentle-voice vibevoice-setup plan` stay available while that runs. `/gentle-voice vibevoice-setup cancel` stops it and keeps verified files. The next launch does not ask again when the install is already verified. Whisper is a separate question. An explicit Kokoro, Piper, or VibeVoice choice is kept. `/gentle-voice setup` repeats the check. It does not install GPU drivers, CUDA, or a system Python.
 
 Do not pass `--extension` to a Pi that already has `npm:gentle-voice` installed. Pi would register `/gentle-voice` twice. Install with `pi install npm:gentle-voice` or `gentle-shell install npm:gentle-voice`. Both commands install that same npm package.
+
+## Modes
+
+Not everyone wants a conversation. Pick the part you need:
+
+| Mode | You | Gentle Voice | Downloads |
+| --- | --- | --- | --- |
+| `conversation` | Talk | Sends your turn, reads the reply aloud, and listens again | Whisper, a voice engine, Silero |
+| `dictation` | Talk | Writes what you said into the Pi editor. Nothing is sent until you press Enter. Nothing is read aloud | Whisper |
+| `listen` | Type as usual | Reads every reply aloud. The microphone never opens | A voice engine |
+
+`/gentle-voice mode conversation|dictation|listen` switches and keeps the choice for the next launch. `/gentle-voice mode` prints the current one. `GENTLE_VOICE_USAGE` overrides the stored choice. In dictation, `Ctrl+Alt+Space` starts recording and pressing it again ends it; a pause also ends it. The text is added after anything already in the editor. In listen-only, `Ctrl+Alt+Space` does not open the microphone, and `/gentle-voice converse on` asks you to switch back to `conversation` first.
 
 ## First session
 
@@ -130,6 +142,7 @@ Voice AI writes the spoken text in the language the voice will use.
 | `/gentle-voice purge` | Show the delete plan. Nothing is removed until you confirm |
 | `/gentle-voice stream auto\|pcm\|wav` | VibeVoice playback. See below |
 | `/gentle-voice tts kokoro\|piper\|vibevoice` | Choose the engine. `kokoro` offers to install it when missing |
+| `/gentle-voice mode conversation\|dictation\|listen` | Conversation, dictation only, or listen only. See [Modes](#modes) |
 | `/gentle-voice lang auto\|es\|en` | Language you speak and the voice answers in. See [Languages](#languages) |
 | `/gentle-voice vibevoice-setup` | Short confirm, then install. `plan` prints the full terms |
 | `/gentle-voice voice-ai on\|off\|status` | Optional second model that writes the spoken text |
@@ -245,9 +258,9 @@ Measured on Linux x64. Only the package comes with `pi install`; everything else
 | Whisper (`whisper-cli` 28.1 MB + `ggml-base-q5_1` 59.7 MB) | Speech to text, Spanish and English | 87.8 MB |
 | Silero model | Hands-free conversation | 2.3 MB |
 | sherpa-onnx runtime | Runs Silero. Reused from Gentle Shell when present | 33.4 MB (11.1 MB download) |
-| Kokoro (model files 191.7 MB + Python environment 177.1 MB) | Recommended voice, CPU | 368.9 MB |
-| Piper (binary 52.6 MB + Daniela voice 114.2 MB) | Light fallback voice | 166.8 MB |
-| VibeVoice | Optional GPU voice | 8.2 GB (about 7.6 GiB) |
+| Kokoro (model files 191.7 MB + Python environment 177.1 MB) | Balanced voice, CPU. Recommended | 368.9 MB |
+| Piper (binary 52.6 MB + Daniela voice 114.2 MB) | Robotic but light fallback voice | 166.8 MB |
+| VibeVoice | Natural voice, optional GPU | 8.2 GB (about 7.6 GiB) |
 
 A typical install (package, Whisper, Silero, and Kokoro) takes about 495 MB, or about 461 MB when Gentle Shell's runtime is reused. Up to 0.2.0, Silero ran on `onnxruntime-node`, an optional npm dependency that installed 548 MB (CUDA and every platform) with the package, without asking. That same install took about 1 GB.
 
@@ -294,6 +307,8 @@ pnpm test
 pnpm typecheck
 npm pack --dry-run
 ```
+
+`pnpm test` removes the scratch directories the suite created in the system temp directory, even when a test fails. `pnpm test:clean` removes `gv-*` leftovers from older runs.
 
 Issues and pull requests: [CONTRIBUTING.md](CONTRIBUTING.md).
 
