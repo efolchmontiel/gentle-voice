@@ -4,6 +4,8 @@ All notable changes to Gentle Voice are documented here.
 
 ## [Unreleased]
 
+## [0.4.0] — 2026-10-26
+
 ### Added
 
 - Three modes, so a conversation is no longer required: `conversation`, `dictation` (speech to text into the Pi editor, nothing read aloud), and `listen` (typed prompts are read aloud, the microphone never opens). `/gentle-voice mode conversation|dictation|listen` switches and remembers the choice; `GENTLE_VOICE_USAGE` overrides it.
