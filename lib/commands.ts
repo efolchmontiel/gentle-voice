@@ -30,6 +30,7 @@ export const VOICE_SUBCOMMANDS: readonly VoiceCommandName[] = [
 	"barge-in",
 	"tts",
 	"lang",
+	"mode",
 	"vibevoice-setup",
 ] as const;
 
@@ -68,7 +69,7 @@ export function parseVoiceArgs(raw: string): ParsedVoiceArgs {
 			return {
 				command: "",
 				rest: trimmed,
-				error: `Unknown subcommand "${head}". Try: on|off|listen|stop|mute|status|config|setup|storage|send|draft|edit|converse|purge|stream|voice-ai|add|barge-in|tts|lang|vibevoice-setup`,
+				error: `Unknown subcommand "${head}". Try: on|off|listen|stop|mute|status|config|setup|storage|send|draft|edit|converse|purge|stream|voice-ai|add|barge-in|tts|lang|mode|vibevoice-setup`,
 			};
 		}
 		return {
@@ -83,7 +84,7 @@ export function parseVoiceArgs(raw: string): ParsedVoiceArgs {
 		return {
 			command: "",
 			rest: trimmed,
-			error: `Unknown subcommand "${head}". Try: on|off|listen|stop|mute|status|config|setup|storage|send|draft|edit|converse|purge|stream|voice-ai|add|barge-in|tts|lang|vibevoice-setup`,
+			error: `Unknown subcommand "${head}". Try: on|off|listen|stop|mute|status|config|setup|storage|send|draft|edit|converse|purge|stream|voice-ai|add|barge-in|tts|lang|mode|vibevoice-setup`,
 		};
 	}
 	return { command, rest: tail.join(" ") };
@@ -91,7 +92,7 @@ export function parseVoiceArgs(raw: string): ParsedVoiceArgs {
 
 export function parseModeFlag(rest: string): VoiceMode | undefined {
 	const value = rest.trim().toLowerCase();
-	if (value === "dictation" || value === "conversation" || value === "silent") return value;
+	if (value === "dictation" || value === "conversation" || value === "silent" || value === "listen") return value;
 	return undefined;
 }
 
@@ -122,6 +123,7 @@ export function voiceHelpText(options?: { includeLab?: boolean }): string {
 		"  /gentle-voice add voice-ai   Add an empty voice-ai role to every existing profile",
 		"  /gentle-voice barge-in on|off|status  Interrupt playback by speaking",
 		"  /gentle-voice tts piper|vibevoice|kokoro  Select the TTS engine for this session",
+		"  /gentle-voice mode conversation|dictation|listen  Talk and hear replies, dictation only (no voice), or listen only (no microphone)",
 		"  /gentle-voice lang auto|es|en  Language you speak and the voice replies in (auto: Spanish or English per turn)",
 		"  /gentle-voice vibevoice-setup  Install VibeVoice after confirm. `plan` prints the terms. `cancel` stops the running install",
 	];

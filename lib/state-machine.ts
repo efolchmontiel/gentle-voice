@@ -131,6 +131,13 @@ export function reduceVoiceState(state: VoiceMachineState, event: VoiceMachineEv
 				return next(state, [{ type: "notify", level: "warning", message: "Voice is off. Use /gentle-voice on first." }]);
 			}
 			if (state.phase === "listening" || state.phase === "transcribing") return unchanged(state);
+			if (state.mode === "listen") {
+				return next(state, [{
+					type: "notify",
+					level: "warning",
+					message: "Listen-only mode keeps the microphone off. /gentle-voice mode conversation or dictation turns it on.",
+				}]);
+			}
 			// Prevent accidental capture while the agent turn is open (ghost STT / echo).
 			if (state.phase === "awaiting_agent") {
 				return next(state, [{

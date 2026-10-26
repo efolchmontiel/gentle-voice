@@ -146,6 +146,15 @@ import { createNodeWslAudioIo, driveWslAudioBridge, planWslAudioBridge } from ".
 import { isKokoroReady, resolveKokoroHome } from "../lib/kokoro/home.ts";
 import { formatKokoroConsent } from "../lib/kokoro/install.ts";
 import { driveKokoroInstall } from "../lib/kokoro/install-drive.ts";
+import {
+	appendDictatedText,
+	describeVoiceUsage,
+	parseVoiceUsage,
+	resolveVoiceUsage,
+	voiceModeForUsage,
+	writeVoiceUsage,
+	type VoiceUsage,
+} from "../lib/usage/voice-usage.ts";
 
 export { VOICE_STATUS_KEY, VOICE_WIDGET_KEY };
 
@@ -265,6 +274,19 @@ function endConversationSession(session: VoiceSession): void {
 	}
 }
 
+/**
+ * Puts the session in the chosen usage. Listen-only switches voice on so typed
+ * prompts are read aloud; the other two leave capture to the user.
+ */
+function applyVoiceUsage(session: VoiceSession, usage: VoiceUsage): void {
+	if (usage !== "conversation" && session.config.behavior.fluentConversation) endConversationSession(session);
+	session.replaceConfig({
+		...session.config,
+		enabled: usage === "listen" ? true : session.config.enabled,
+		behavior: { ...session.config.behavior, mode: voiceModeForUsage(usage) },
+	});
+}
+
 function labDiagEnabled(): boolean {
 	return isGentleVoiceLabMode() && process.env.GENTLE_VOICE_LAB_DIAG === "1";
 }
@@ -377,10 +399,12 @@ function voiceAiRuntimeFromConfig(config: VoiceConfig): VoiceAiRuntimeConfig {
 }
 
 export function createVoiceExtension(pi: VoiceHostApi, options: VoiceExtensionOptions = {}): VoiceSession {
+	const initialUsage = resolveVoiceUsage(resolveVoiceHomeForTts());
 	const config = applyVoiceAiEnvOverrides(options.config ?? {
 		...DEFAULT_VOICE_CONFIG,
+		enabled: initialUsage === "listen" ? true : DEFAULT_VOICE_CONFIG.enabled,
 		engines: { ...DEFAULT_VOICE_CONFIG.engines, language: resolveVoiceLanguageMode(resolveVoiceHomeForTts()) },
-		behavior: { ...DEFAULT_VOICE_CONFIG.behavior, autoSubmitTranscript: false },
+		behavior: { ...DEFAULT_VOICE_CONFIG.behavior, mode: voiceModeForUsage(initialUsage), autoSubmitTranscript: false },
 		voiceAi: { ...DEFAULT_VOICE_CONFIG.voiceAi },
 	});
 	// Product default: real adapters. node:test sets NODE_TEST_CONTEXT → stubs unless forced.
@@ -520,6 +544,10 @@ export function createVoiceExtension(pi: VoiceHostApi, options: VoiceExtensionOp
 						ui.setWidget!(key, content, options),
 				}
 				: {}),
+			applyUsage: (usage: VoiceUsage) => {
+				applyVoiceUsage(session, usage);
+				updateChrome(ctx, session);
+			},
 			captureReady: async () => {
 				if ((await adapters.capture.availability()).status !== "ready") return false;
 				if (!useRealAudio || process.platform !== "linux") return true;
@@ -625,7 +653,8 @@ export function createVoiceExtension(pi: VoiceHostApi, options: VoiceExtensionOp
 			return { id: m.id, ...(m.provider ? { provider: m.provider } : {}) };
 		},
 		activeThinking: () => lastCtx?.thinkingLevel,
-		bargeInEnabled: () => bargeActivation(session.config.behavior.fluentConversation).enabled,
+		bargeInEnabled: () => session.state.mode === "conversation"
+			&& bargeActivation(session.config.behavior.fluentConversation).enabled,
 		submitTranscript: (text) => {
 			replyTracker.markVoiceSubmit(randomUUID());
 			pi.sendUserMessage?.(text);
@@ -702,6 +731,12 @@ export function createVoiceExtension(pi: VoiceHostApi, options: VoiceExtensionOp
 	});
 	session.deps.presentTranscript = async (text) => {
 		if (!lastCtx) return;
+		if (session.state.mode === "dictation" && typeof lastCtx.ui.setEditorText === "function") {
+			lastCtx.ui.setEditorText(appendDictatedText(lastCtx.ui.getEditorText?.() ?? "", text));
+			session.setReviewDraft("");
+			lastCtx.ui.notify("Dictation added to the editor. Review it and press Enter to send.", "info");
+			return;
+		}
 		const corr = session.lastCorrection;
 		const head = corr?.changed
 			? formatCorrectionDiff(corr)
@@ -739,6 +774,23 @@ export function createVoiceExtension(pi: VoiceHostApi, options: VoiceExtensionOp
 		handler: async (ctx) => {
 			lastCtx = ctx as VoiceHostCommandContext;
 			await ensureAutomaticFirstRun(lastCtx);
+			if (session.state.mode === "listen") {
+				lastCtx.ui.notify(
+					"Listen-only mode: replies are read aloud and the microphone stays off. /gentle-voice mode conversation or dictation turns it on.",
+					"info",
+				);
+				return;
+			}
+			if (session.state.mode === "dictation") {
+				if (session.state.phase === "listening") await session.finishListen();
+				else if (session.state.phase === "idle" || !session.state.enabled) {
+					if (!session.state.enabled) session.dispatch({ type: "ENABLE" });
+					session.dispatch({ type: "LISTEN" });
+				}
+				await session.flush();
+				updateChrome(lastCtx, session);
+				return;
+			}
 			const fluent = session.config.behavior.fluentConversation;
 
 			// ——— Conversation session toggle (product hands-free) ———
@@ -1559,10 +1611,37 @@ export function createVoiceExtension(pi: VoiceHostApi, options: VoiceExtensionOp
 					}
 					break;
 				}
+				case "mode": {
+					const arg = parsed.rest.trim().toLowerCase();
+					if (!arg) {
+						ctx.ui.notify(`Voice mode: ${describeVoiceUsage(resolveVoiceUsage(resolveVoiceHomeForTts()))}.`, "info");
+						break;
+					}
+					const usage = parseVoiceUsage(arg);
+					if (!usage) {
+						ctx.ui.notify("Usage: /gentle-voice mode conversation|dictation|listen", "warning");
+						break;
+					}
+					writeVoiceUsage(resolveVoiceHomeForTts(), usage);
+					applyVoiceUsage(session, usage);
+					const env = process.env.GENTLE_VOICE_USAGE?.trim();
+					ctx.ui.notify(
+						`Voice mode: ${describeVoiceUsage(usage)}.${env && parseVoiceUsage(env) !== usage ? ` GENTLE_VOICE_USAGE=${env} still wins on the next start.` : ""}`,
+						"info",
+					);
+					break;
+				}
 				case "converse": {
 					const arg = parsed.rest.trim().toLowerCase();
 					const on = arg === "on" || arg === "1" || arg === "true";
 					const off = arg === "off" || arg === "0" || arg === "false";
+					if (on && session.state.mode !== "conversation") {
+						ctx.ui.notify(
+							`Conversation is off in ${session.state.mode} mode. /gentle-voice mode conversation switches back.`,
+							"warning",
+						);
+						break;
+					}
 					if (!arg) {
 						ctx.ui.notify(
 							`Conversation is ${session.config.behavior.fluentConversation ? "ON" : "OFF"}.`,
@@ -1834,6 +1913,9 @@ export function createVoiceExtension(pi: VoiceHostApi, options: VoiceExtensionOp
 			// Edit → Enter uses native Pi send; correlate so spoken reply still works.
 			if (session.editHold) {
 				session.endEditHold();
+				replyTracker.markVoiceSubmit(randomUUID());
+			} else if (session.state.mode === "listen") {
+				// Listen-only has no voice turns: every typed prompt gets a spoken reply.
 				replyTracker.markVoiceSubmit(randomUUID());
 			}
 			session.dispatch({ type: "AGENT_STARTED" });

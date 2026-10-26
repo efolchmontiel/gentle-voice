@@ -283,6 +283,11 @@ export class VoiceSession {
 		if (mode !== "auto") this.#turnLanguage = undefined;
 	}
 
+	/** Listen-only reads replies aloud like conversation, without the microphone. */
+	#speaksReplies(): boolean {
+		return this.#state.mode === "conversation" || this.#state.mode === "listen";
+	}
+
 	#sttLanguage(): string {
 		return sttLanguageFor(this.languageMode);
 	}
@@ -605,7 +610,7 @@ export class VoiceSession {
 	async playSideNotice(text: string): Promise<void> {
 		const trimmed = text.trim();
 		if (!trimmed || !this.#state.enabled || this.#state.muted) return;
-		if (this.#state.mode !== "conversation") return;
+		if (!this.#speaksReplies()) return;
 		if (this.#state.phase === "speaking" || this.#state.phase === "listening") return;
 		this.#noticeAbort?.abort();
 		const ac = new AbortController();
@@ -730,7 +735,7 @@ export class VoiceSession {
 	 * confirms. Confirm cancels playback, not the orchestrator.
 	 */
 	async #armBargeMonitor(): Promise<void> {
-		if (!this.deps.bargeInEnabled?.()) {
+		if (this.#state.mode !== "conversation" || !this.deps.bargeInEnabled?.()) {
 			this.#noteBarge("skip enabled=0");
 			return;
 		}
@@ -893,7 +898,7 @@ export class VoiceSession {
 		if (!this.#bargeLatched) this.#discardBargeMonitor();
 		if (!this.#config.behavior.fluentConversation) return;
 		if (!this.#state.enabled) return;
-		if (this.#state.mode === "dictation") return;
+		if (this.#state.mode !== "conversation") return;
 		if (this.#editHold) return;
 		if (this.#streamActive || this.#streamQueue.isBusy) return;
 		this.cancelScheduledListen();
@@ -990,7 +995,7 @@ export class VoiceSession {
 	 */
 	beginStreamSpeak(): void {
 		if (!this.#state.enabled || this.#state.muted) return;
-		if (this.#state.mode !== "conversation") return;
+		if (!this.#speaksReplies()) return;
 		// Kill obsolete playback from turn A before turn B can stream.
 		this.#speakEpoch += 1;
 		this.#streamTurnId += 1;
@@ -1540,7 +1545,7 @@ export class VoiceSession {
 		}
 
 		const maySpeak = eligibility.speak
-			&& this.#state.mode === "conversation"
+			&& this.#speaksReplies()
 			&& !this.#state.muted
 			&& this.#state.enabled
 			&& input.outcome !== "aborted"
