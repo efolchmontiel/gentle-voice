@@ -4,6 +4,8 @@ All notable changes to Gentle Voice are documented here.
 
 ## [Unreleased]
 
+## [0.4.1] — 2026-10-29
+
 ### Fixed
 
 - Voice AI: create or repair `agents/voice-ai.md` in the host agent home Gentle Shell discovers, so a profile key named `voice-ai` is not reported as unmatched and ignored at launch. Extension load and session start seed the file; `/gentle-voice add voice-ai` reports when it was created or repaired. Agent home resolution follows `GENTLE_PI_AGENT_HOME`, storage session signals, and `GENTLE_SHELL_HOME`.
