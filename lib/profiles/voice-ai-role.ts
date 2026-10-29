@@ -1,9 +1,15 @@
 /**
  * Production seed for the `voice-ai` role.
  *
- * The role is added empty. Model and thinking are chosen later in `/gentle:models`.
- * A missing profiles file is never created. An existing `voice-ai` entry is never overwritten.
- * The write stays on this host's Gentle AI store and does not fall through to the other product.
+ * The role is added empty. Model and thinking are chosen later in `/gentle:profiles`
+ * (or `/gentle:models`). A missing profiles file is never created. An existing
+ * `voice-ai` entry is never overwritten. The write stays on this host's Gentle AI
+ * store and does not fall through to the other product.
+ *
+ * Gentle Shell discovers agents from markdown under the session agent home. A
+ * profile key without a matching `agents/voice-ai.md` is reported as unmatched
+ * and ignored at launch. This module always ensures that file exists in the
+ * host agent home before touching profiles.
  */
 
 import { existsSync, mkdirSync, readFileSync, renameSync, statSync, unlinkSync, writeFileSync } from "node:fs";
@@ -11,9 +17,11 @@ import { homedir } from "node:os";
 import { dirname, isAbsolute, join } from "node:path";
 import {
 	defaultGentleShellPrefixFromAgent,
+	effectiveAgentHome,
 	isDefaultGentleShellAgentDir,
 	isPathInside,
 	pathsEqual,
+	resolveGentleVoiceStorage,
 } from "../runtime/storage.ts";
 
 export const VOICE_AI_ROLE_NAME = "voice-ai" as const;
@@ -30,22 +38,29 @@ export interface EnsureVoiceAiRolesResult {
 	readonly reason?: string;
 	readonly agentPath: string;
 	readonly agentCreated: boolean;
+	readonly agentRepaired: boolean;
 }
 
-/** Listed by `/gentle:models`. No model and no thinking: those are saved by that panel. */
+/** Discoverable by Gentle Shell. No model/thinking here — those are saved in the profiles panel. */
 export const VOICE_AI_AGENT_MARKDOWN = `---
 name: voice-ai
-description: Gentle Voice narration role. Assign the model and effort in /gentle:models. This is not a task agent.
+description: Gentle Voice narration role. Assign the model and effort in /gentle:profiles. This is not a task agent.
 tools: []
 ---
 
-This file exists so /gentle:models can assign the voice-ai narrator. It does not run tasks.
+This file exists so Gentle Shell can discover the voice-ai role and /gentle:profiles can assign its narrator. It does not run tasks.
 `;
 
 export interface VoiceAiModelsAssignment {
 	readonly present: boolean;
 	readonly model?: string;
 	readonly thinking?: string;
+}
+
+export interface EnsureVoiceAiAgentResult {
+	readonly path: string;
+	readonly created: boolean;
+	readonly repaired: boolean;
 }
 
 function isRecord(value: unknown): value is Record<string, unknown> {
@@ -71,7 +86,7 @@ function piProfilesFile(env: NodeJS.ProcessEnv): string {
  */
 export function resolveHostProfilesFile(env: NodeJS.ProcessEnv = process.env): string {
 	const prefix = env.GENTLE_SHELL_PREFIX?.trim();
-	const agent = env.GENTLE_PI_AGENT_HOME?.trim() || env.PI_CODING_AGENT_DIR?.trim();
+	const agent = effectiveAgentHome(env);
 	if (prefix && isAbsolute(prefix) && agent && isPathInside(prefix, agent)) {
 		return join(prefix, "config", "gentle-ai", "profiles.json");
 	}
@@ -90,10 +105,20 @@ export function resolveHostProfilesFile(env: NodeJS.ProcessEnv = process.env): s
 	return piProfilesFile(env);
 }
 
-/** Agent home `/gentle:models` scans. Gentle Shell sets `GENTLE_PI_AGENT_HOME`. */
+/**
+ * Agent home Gentle Shell discovers (`agents/`, `subagents/`).
+ * Prefer the same session signals storage uses; never invent a path by scanning disk.
+ */
 export function resolveHostAgentDir(env: NodeJS.ProcessEnv = process.env): string {
-	const explicit = env.GENTLE_PI_AGENT_HOME?.trim() || env.PI_CODING_AGENT_DIR?.trim();
+	const fromStorage = resolveGentleVoiceStorage({ env }).agentHome?.trim();
+	if (fromStorage && isAbsolute(fromStorage)) return fromStorage;
+
+	const explicit = effectiveAgentHome(env);
 	if (explicit && isAbsolute(explicit)) return explicit;
+
+	const gsHome = env.GENTLE_SHELL_HOME?.trim();
+	if (gsHome && isAbsolute(gsHome)) return gsHome;
+
 	return join(homeDir(env), ".pi", "agent");
 }
 
@@ -101,19 +126,57 @@ export function voiceAiAgentPath(env: NodeJS.ProcessEnv = process.env): string {
 	return join(resolveHostAgentDir(env), "agents", "voice-ai.md");
 }
 
-/**
- * Create the agent file when it is missing. An existing file is left alone so a
- * model saved by `/gentle:models` is not wiped.
- */
-export function ensureVoiceAiAgent(env: NodeJS.ProcessEnv = process.env): { path: string; created: boolean } {
-	const path = voiceAiAgentPath(env);
-	if (existsSync(path)) return { path, created: false };
-	mkdirSync(dirname(path), { recursive: true });
-	writeFileSync(path, VOICE_AI_AGENT_MARKDOWN, { mode: 0o644 });
-	return { path, created: true };
+/** True when the file has a discoverable `name: voice-ai` frontmatter field. */
+export function voiceAiAgentHasDiscoverableName(text: string): boolean {
+	const match = /^---\r?\n([\s\S]*?)\r?\n---/.exec(text);
+	const frontmatter = match?.[1];
+	if (!frontmatter) return false;
+	return /^name:\s*voice-ai\s*$/m.test(frontmatter);
 }
 
-/** Assignment `/gentle:models` writes beside `profiles.json`. */
+/**
+ * Create or repair the agent file Gentle Shell must discover for the profile key.
+ * Preserves an existing body and any model/thinking frontmatter already saved.
+ */
+export function ensureVoiceAiAgent(env: NodeJS.ProcessEnv = process.env): EnsureVoiceAiAgentResult {
+	const path = voiceAiAgentPath(env);
+	if (!existsSync(path)) {
+		mkdirSync(dirname(path), { recursive: true });
+		writeFileSync(path, VOICE_AI_AGENT_MARKDOWN, { mode: 0o644 });
+		return { path, created: true, repaired: false };
+	}
+	let text: string;
+	try {
+		text = readFileSync(path, "utf8");
+	} catch {
+		writeFileSync(path, VOICE_AI_AGENT_MARKDOWN, { mode: 0o644 });
+		return { path, created: false, repaired: true };
+	}
+	if (voiceAiAgentHasDiscoverableName(text)) {
+		return { path, created: false, repaired: false };
+	}
+	const bodyMatch = /^---\r?\n[\s\S]*?\r?\n---\r?\n?([\s\S]*)$/.exec(text);
+	const body = (bodyMatch?.[1] ?? text).trim()
+		|| "This file exists so Gentle Shell can discover the voice-ai role. It does not run tasks.";
+	const model = /^model:\s*(.+)$/m.exec(text)?.[1]?.trim();
+	const thinking = /^(?:thinking|effort):\s*(.+)$/m.exec(text)?.[1]?.trim();
+	const repaired = [
+		"---",
+		"name: voice-ai",
+		"description: Gentle Voice narration role. Assign the model and effort in /gentle:profiles. This is not a task agent.",
+		...(model ? [`model: ${model}`] : []),
+		...(thinking ? [`thinking: ${thinking}`] : []),
+		"tools: []",
+		"---",
+		"",
+		body,
+		"",
+	].join("\n");
+	writeFileSync(path, repaired, { mode: 0o644 });
+	return { path, created: false, repaired: true };
+}
+
+/** Assignment `/gentle:models` / profiles panel writes beside `profiles.json`. */
 export function readVoiceAiModelsAssignment(
 	configHome: string,
 ): VoiceAiModelsAssignment {
@@ -151,15 +214,20 @@ function detectIndent(text: string): string {
 }
 
 /**
- * Add `"voice-ai": {}` to every profile that does not already have the role.
- * Does not create the profiles file and does not invent a model.
- * When `/gentle:models` has already saved a voice-ai assignment, that assignment
- * is copied onto the role so the profile matches the panel.
+ * Ensure the discoverable agent file exists, then add `"voice-ai": {}` to every
+ * profile that does not already have the role. Does not create the profiles file
+ * and does not invent a model. When the profiles panel has already saved a
+ * voice-ai assignment in `models.json`, that assignment is copied onto the role.
  */
 export function ensureVoiceAiRoles(env: NodeJS.ProcessEnv = process.env): EnsureVoiceAiRolesResult {
 	const agent = ensureVoiceAiAgent(env);
 	const path = resolveHostProfilesFile(env);
-	const base = { path, agentPath: agent.path, agentCreated: agent.created };
+	const base = {
+		path,
+		agentPath: agent.path,
+		agentCreated: agent.created,
+		agentRepaired: agent.repaired,
+	};
 	if (!existsSync(path)) return { ...base, status: "missing", added: [] };
 
 	let text: string;

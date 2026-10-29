@@ -41,7 +41,7 @@ Gentle Shell does not need a separate `pi install`. It installs the same `gentle
 
 The command is `/gentle-voice`. Gentle Shell ships its own `/gentle:voice` for local dictation, and the two are separate.
 
-The active Gentle AI profile must have a role named `voice-ai`. `voice-ai` is the role name, not a model name. When `profiles.json` already exists, the first session adds an empty `voice-ai` role to every profile and a `voice-ai` agent file so `/gentle:models` lists it. The role starts without a model or a thinking level. Open `/gentle:models`, select `voice-ai`, and save the model and the effort. That saved assignment is what the narrator uses. If the profiles file does not exist, nothing is created there. Create a profile with `/gentle:profiles`, then run `/gentle-voice add voice-ai`.
+The active Gentle AI profile must have a role named `voice-ai`. `voice-ai` is the role name, not a model name. When `profiles.json` already exists, extension load adds an empty `voice-ai` role to every profile and a discoverable `agents/voice-ai.md` so Gentle Shell does not warn that the profile key matches no agent. The role starts without a model or a thinking level. Open `/gentle:profiles`, select `voice-ai`, and save the model and the effort. That saved assignment is what the narrator uses. If the profiles file does not exist, the agent file is still created; create a profile with `/gentle:profiles`, then run `/gentle-voice add voice-ai`.
 
 ```json
 "voice-ai": {}
@@ -146,7 +146,7 @@ Voice AI writes the spoken text in the language the voice will use.
 | `/gentle-voice lang auto\|es\|en` | Language you speak and the voice answers in. See [Languages](#languages) |
 | `/gentle-voice vibevoice-setup` | Short confirm, then install. `plan` prints the full terms |
 | `/gentle-voice voice-ai on\|off\|status` | Optional second model that writes the spoken text |
-| `/gentle-voice add voice-ai` | Add an empty `voice-ai` role to every existing profile, and list it in `/gentle:models` |
+| `/gentle-voice add voice-ai` | Add an empty `voice-ai` role to every existing profile, and ensure `agents/voice-ai.md` for Gentle Shell |
 | `/gentle-voice barge-in on\|off\|status` | Interrupt playback by speaking |
 
 ## Esc
@@ -159,7 +159,7 @@ Voice AI writes a short spoken version after the agent settles. It does not chan
 
 On Pi alone, the narrator is the active Pi model. Switching that model switches the next narration. A Gentle AI profile on disk is not read.
 
-On Gentle Shell, the empty `voice-ai` role is added to every existing profile. Assign its model and effort in `/gentle:models`, or run `/gentle-voice add voice-ai` when the profiles file was created later. That assigned model is the narrator. It is not replaced by the active Pi model while the role has a valid model.
+On Gentle Shell, the empty `voice-ai` role is added to every existing profile and `agents/voice-ai.md` is created so the profile key is discoverable. Assign its model and effort in `/gentle:profiles`, or run `/gentle-voice add voice-ai` when the profiles file was created later. That assigned model is the narrator. It is not replaced by the active Pi model while the role has a valid model.
 
 | Situation | What happens |
 | --- | --- |

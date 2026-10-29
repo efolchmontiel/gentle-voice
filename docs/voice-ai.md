@@ -10,6 +10,8 @@
 
 `voice-ai` is a **role** under the active profile — never a sibling top-level profile.
 
+Gentle Shell discovers roles from markdown under the session agent home (`agents/voice-ai.md`). A profile key without that file is reported as unmatched and ignored at launch. Gentle Voice creates or repairs the file on extension load, on session start, and on `/gentle-voice add voice-ai`, using the same agent home the host exposes (`GENTLE_PI_AGENT_HOME`, `GENTLE_SHELL_HOME`, or Pi's `~/.pi/agent`).
+
 ## Pipeline
 
 1. Orchestrator (e.g. DeepSeek) produces the **written** reply (tools, agents, screen).
@@ -33,7 +35,7 @@ Narration stays `after_settle`. Pi `text_delta` is provisional: tools, thinking,
 /gentle-voice voice-ai-profile   # lab only: seed OpenSource.voice-ai → MiMo (does not change orchestrator)
 ```
 
-`/gentle-voice add voice-ai` adds the empty role and a `voice-ai` agent file so `/gentle:models` lists it. The command does not create `profiles.json`. If that file is missing, create a profile with `/gentle:profiles` and run the command again. Model and effort are set on the `voice-ai` row in `/gentle:models`, then saved. When the profiles file already exists, the first session of an install does the same.
+`/gentle-voice add voice-ai` adds the empty role and a `voice-ai` agent file so Gentle Shell can discover the key and `/gentle:profiles` can list it. The command does not create `profiles.json`. If that file is missing, create a profile with `/gentle:profiles` and run the command again. Model and effort are set on the `voice-ai` row in `/gentle:profiles` (or `/gentle:models`), then saved. When the profiles file already exists, extension load and the first session do the same.
 
 The extra call is a second model request, billed apart from the orchestrator. `voice-ai` is the role name, not a model name. MiMo is one model that can fill it. Input is the assistant text clipped to 8000 characters. The default timeout is 25 seconds. One lab observation with MiMo was 363 input tokens and 9 output tokens. That figure is not a quota and it does not mean the model is free. Off, an invalid role, a provider error, or a timeout skips the extra call and uses the deterministic renderer. The written reply stays as the orchestrator wrote it.
 
@@ -51,7 +53,7 @@ Preference file: `$GENTLE_VOICE_HOME/voice-ai-preference.json`. Status resolves 
 
 ## Config (`voiceAi.*`)
 
-Model/effort live in `/gentle:profiles`, not duplicated in GV config.
+Model/effort live in `/gentle:profiles` (unified profiles panel on current Gentle Shell), not duplicated in GV config.
 
 | Field | Default | Meaning |
 | --- | --- | --- |
