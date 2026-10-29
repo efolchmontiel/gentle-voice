@@ -4,10 +4,17 @@
 import assert from "node:assert/strict";
 import { existsSync, mkdirSync, mkdtempSync, readFileSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
-import { join } from "node:path";
+import { dirname, join } from "node:path";
 import { test } from "node:test";
 import { parseVoiceArgs, voiceHelpText } from "../lib/commands.ts";
-import { ensureVoiceAiRoles, resolveHostProfilesFile, voiceAiAgentPath } from "../lib/profiles/voice-ai-role.ts";
+import {
+	ensureVoiceAiAgent,
+	ensureVoiceAiRoles,
+	resolveHostAgentDir,
+	resolveHostProfilesFile,
+	voiceAiAgentHasDiscoverableName,
+	voiceAiAgentPath,
+} from "../lib/profiles/voice-ai-role.ts";
 import { resolveNarratorFromProfiles } from "../lib/narration/profile-role-resolver.ts";
 
 function profiles(body: Record<string, unknown>): string {
@@ -127,7 +134,7 @@ test("Pi standalone uses ~/.pi/gentle-ai", () => {
 	assert.deepEqual(written.profiles.OpenSource.orchestrator, { model: "nan/glm", thinking: "high" });
 });
 
-test("voice-ai.md is created so /gentle:models can list it", () => {
+test("voice-ai.md is created so Gentle Shell can discover the profile key", () => {
 	const root = mkdtempSync(join(tmpdir(), "gv-role-"));
 	const agent = join(root, "agent");
 	const dir = join(root, ".pi", "gentle-ai");
@@ -137,14 +144,62 @@ test("voice-ai.md is created so /gentle:models can list it", () => {
 	const result = ensureVoiceAiRoles(env);
 	const file = voiceAiAgentPath(env);
 	assert.equal(result.agentCreated, true);
+	assert.equal(result.agentRepaired, false);
 	assert.equal(result.agentPath, file);
 	const text = readFileSync(file, "utf8");
-	assert.match(text, /^name:\s*voice-ai$/m);
+	assert.equal(voiceAiAgentHasDiscoverableName(text), true);
 	assert.doesNotMatch(text, /^model:/m);
-	writeFileSync(file, `${text}model: nan/kept\n`);
+	writeFileSync(file, text.replace("tools: []", "model: nan/kept\ntools: []"));
 	const again = ensureVoiceAiRoles(env);
 	assert.equal(again.agentCreated, false);
+	assert.equal(again.agentRepaired, false);
 	assert.match(readFileSync(file, "utf8"), /model: nan\/kept/);
+});
+
+test("standalone Gentle Shell agent home comes from GENTLE_SHELL_HOME", () => {
+	const root = mkdtempSync(join(tmpdir(), "gv-role-"));
+	const agent = join(root, ".gentle-shell", "agent");
+	const env = { HOME: root, GENTLE_SHELL_HOME: agent };
+	assert.equal(resolveHostAgentDir(env), agent);
+	const created = ensureVoiceAiAgent(env);
+	assert.equal(created.created, true);
+	assert.equal(created.path, join(agent, "agents", "voice-ai.md"));
+	assert.equal(existsSync(created.path), true);
+});
+
+test("a voice-ai.md without name: voice-ai is repaired without wiping model", () => {
+	const root = mkdtempSync(join(tmpdir(), "gv-role-"));
+	const agent = join(root, "agent");
+	const file = join(agent, "agents", "voice-ai.md");
+	mkdirSync(dirname(file), { recursive: true });
+	writeFileSync(
+		file,
+		["---", "name: narrator", "model: nan/kept", "thinking: low", "tools: []", "---", "", "keep body", ""].join("\n"),
+	);
+	const env = { HOME: root, GENTLE_PI_AGENT_HOME: agent };
+	const result = ensureVoiceAiAgent(env);
+	assert.equal(result.created, false);
+	assert.equal(result.repaired, true);
+	const text = readFileSync(file, "utf8");
+	assert.equal(voiceAiAgentHasDiscoverableName(text), true);
+	assert.match(text, /^model:\s*nan\/kept$/m);
+	assert.match(text, /^thinking:\s*low$/m);
+	assert.match(text, /keep body/);
+});
+
+test("agent file is created even when profiles.json is missing", () => {
+	const root = mkdtempSync(join(tmpdir(), "gv-role-"));
+	const agent = join(root, ".gentle-shell", "agent");
+	const env = {
+		HOME: root,
+		GENTLE_PI_AGENT_HOME: agent,
+		GENTLE_SHELL_CONFIG_HOME: join(root, ".gentle-shell", "gentle-ai"),
+	};
+	const result = ensureVoiceAiRoles(env);
+	assert.equal(result.status, "missing");
+	assert.equal(result.agentCreated, true);
+	assert.equal(existsSync(result.agentPath), true);
+	assert.equal(voiceAiAgentHasDiscoverableName(readFileSync(result.agentPath, "utf8")), true);
 });
 
 test("a model saved by /gentle:models is copied onto the empty role", () => {

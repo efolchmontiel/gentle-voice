@@ -120,7 +120,7 @@ export function voiceHelpText(options?: { includeLab?: boolean }): string {
 		"  /gentle-voice purge --keep-models   Same plan but preserve models/voices",
 		"  /gentle-voice stream auto|pcm|wav  VibeVoice playback. auto uses PCM when supported",
 		"  /gentle-voice voice-ai on|off|status  Narration model (does not change the written reply)",
-		"  /gentle-voice add voice-ai   Add an empty voice-ai role to every existing profile",
+		"  /gentle-voice add voice-ai   Add voice-ai to every profile and ensure agents/voice-ai.md for Gentle Shell",
 		"  /gentle-voice barge-in on|off|status  Interrupt playback by speaking",
 		"  /gentle-voice tts piper|vibevoice|kokoro  Select the TTS engine for this session",
 		"  /gentle-voice mode conversation|dictation|listen  Talk and hear replies, dictation only (no voice), or listen only (no microphone)",

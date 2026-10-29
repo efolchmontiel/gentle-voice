@@ -398,7 +398,18 @@ function voiceAiRuntimeFromConfig(config: VoiceConfig): VoiceAiRuntimeConfig {
 	};
 }
 
+/** Profile role + discoverable agent file. Must not throw into the host. */
+function seedVoiceAiDiscovery(): void {
+	try {
+		ensureVoiceAiRoles();
+	} catch {
+		/* a profiles or agent write must not block the voice session */
+	}
+}
+
 export function createVoiceExtension(pi: VoiceHostApi, options: VoiceExtensionOptions = {}): VoiceSession {
+	// Before session_start: Gentle Shell may validate profile keys at load.
+	seedVoiceAiDiscovery();
 	const initialUsage = resolveVoiceUsage(resolveVoiceHomeForTts());
 	const config = applyVoiceAiEnvOverrides(options.config ?? {
 		...DEFAULT_VOICE_CONFIG,
@@ -1018,8 +1029,8 @@ export function createVoiceExtension(pi: VoiceHostApi, options: VoiceExtensionOp
 				if (result.status === "missing") {
 					ctx.ui.notify(
 						[
-							result.agentCreated
-								? `voice-ai is now listed in /gentle:models (${result.agentPath}).`
+							result.agentCreated || result.agentRepaired
+								? `voice-ai agent file ready for Gentle Shell discovery (${result.agentPath}).`
 								: `voice-ai agent file: ${result.agentPath}.`,
 							`No profiles file at ${result.path}. Create a profile with /gentle:profiles, then run /gentle-voice add voice-ai.`,
 						].join("\n"),
@@ -1028,12 +1039,27 @@ export function createVoiceExtension(pi: VoiceHostApi, options: VoiceExtensionOp
 					return;
 				}
 				if (result.status === "invalid") {
-					ctx.ui.notify(`profiles.json at ${result.path} was not changed (${result.reason ?? "invalid"}).`, "warning");
+					ctx.ui.notify(
+						[
+							`profiles.json at ${result.path} was not changed (${result.reason ?? "invalid"}).`,
+							result.agentCreated || result.agentRepaired
+								? `Agent file is ready at ${result.agentPath}.`
+								: undefined,
+						].filter(Boolean).join("\n"),
+						"warning",
+					);
 					return;
 				}
 				if (result.status === "unchanged") {
 					ctx.ui.notify(
-						"voice-ai is on every profile and in /gentle:models. Set the model and effort there, then save.",
+						[
+							result.agentCreated
+								? `Created ${result.agentPath} so Gentle Shell discovers voice-ai.`
+								: result.agentRepaired
+									? `Repaired ${result.agentPath} so Gentle Shell discovers voice-ai.`
+									: "voice-ai is on every profile and discoverable.",
+							"Open /gentle:profiles, choose voice-ai, set the model and effort, then save.",
+						].join("\n"),
 						"info",
 					);
 					return;
@@ -1042,9 +1068,12 @@ export function createVoiceExtension(pi: VoiceHostApi, options: VoiceExtensionOp
 					[
 						result.added.length > 0
 							? `Added an empty voice-ai role to ${result.added.join(", ")}.`
-							: "voice-ai now matches the model saved in /gentle:models.",
-						"Open /gentle:models, choose voice-ai, and save the model and effort.",
-					].join("\n"),
+							: "voice-ai now matches the model saved in the profiles panel.",
+						result.agentCreated || result.agentRepaired
+							? `Agent file ready at ${result.agentPath}.`
+							: undefined,
+						"Open /gentle:profiles, choose voice-ai, and save the model and effort.",
+					].filter(Boolean).join("\n"),
 					"info",
 				);
 				return;
@@ -1896,11 +1925,7 @@ export function createVoiceExtension(pi: VoiceHostApi, options: VoiceExtensionOp
 			attachEscape(lastCtx);
 			const duplicate = readDuplicateVoiceWarning();
 			if (duplicate) lastCtx.ui.notify(duplicate, "warning");
-			try {
-				ensureVoiceAiRoles();
-			} catch {
-				/* a profiles write must not block the voice session */
-			}
+			seedVoiceAiDiscovery();
 			void ensureAutomaticFirstRun(lastCtx);
 			updateChrome(lastCtx, session);
 		});
