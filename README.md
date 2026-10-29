@@ -11,7 +11,7 @@
 
 Gentle Voice is a [Pi package](https://pi.dev/docs/latest/packages) for conversation: microphone, speech-to-text, and text-to-speech. It runs inside Pi Coding Agent on its own, and inside Gentle Shell when that host is present. Gentle Shell is not required.
 
-[`gentle-voice@0.4.0`](https://www.npmjs.com/package/gentle-voice) is the published npm package for both hosts. npm `latest` is `0.4.0`. Pi lists it at [pi.dev/packages/gentle-voice](https://pi.dev/packages/gentle-voice). Cloning this repository is not the install.
+[`gentle-voice@0.4.1`](https://www.npmjs.com/package/gentle-voice) is the published npm package for both hosts. npm `latest` is `0.4.1`. Pi lists it at [pi.dev/packages/gentle-voice](https://pi.dev/packages/gentle-voice). Cloning this repository is not the install.
 
 ## Demo
 
